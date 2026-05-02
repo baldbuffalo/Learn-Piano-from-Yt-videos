@@ -40,7 +40,6 @@
 *,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
 html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans)}
 
-/* Grid dot texture */
 body::before{
   content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
   background-image:radial-gradient(circle,rgba(255,255,255,0.035) 1px,transparent 1px);
@@ -58,28 +57,23 @@ header{
   border-bottom:1px solid var(--border);
   display:flex;align-items:center;padding:0 14px;gap:12px;
 }
-
 .logo{
   font-family:var(--sans);font-weight:800;font-size:1.05rem;
   letter-spacing:-0.02em;white-space:nowrap;
   background:linear-gradient(135deg,var(--cyan),var(--purple));
   -webkit-background-clip:text;-webkit-text-fill-color:transparent;
 }
-
 .url-wrap{
   flex:1;display:flex;gap:8px;
   background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
-  padding:4px 4px 4px 10px;
-  transition:border-color .2s;
+  padding:4px 4px 4px 10px;transition:border-color .2s;
 }
 .url-wrap:focus-within{border-color:var(--cyan)}
-
 #url-input{
   flex:1;background:transparent;border:none;outline:none;
   color:var(--text);font-family:var(--mono);font-size:.78rem;
 }
 #url-input::placeholder{color:var(--muted)}
-
 .load-btn{
   background:var(--cyan);color:#000;border:none;border-radius:6px;
   padding:6px 16px;font-family:var(--sans);font-weight:700;font-size:.82rem;
@@ -87,23 +81,19 @@ header{
 }
 .load-btn:hover{opacity:.85}
 .load-btn:active{transform:scale(.97)}
-
 .hdr-badges{display:flex;align-items:center;gap:10px;margin-left:auto}
-
 .badge{
   display:flex;align-items:center;gap:6px;
   padding:4px 10px;border-radius:20px;
   background:var(--surf2);border:1px solid var(--border);
   font-family:var(--mono);font-size:.68rem;color:var(--muted);
-  cursor:pointer;transition:all .2s;
-  white-space:nowrap;
+  cursor:pointer;transition:all .2s;white-space:nowrap;
 }
 .badge:hover{border-color:var(--border2);color:var(--text)}
 .badge.active{background:var(--green-dim);border-color:rgba(52,211,153,.35);color:var(--green)}
 .badge.active .bdot{background:var(--green);box-shadow:0 0 8px var(--green)}
 .badge.listening{background:var(--cyan-dim);border-color:rgba(0,212,255,.35);color:var(--cyan)}
 .badge.listening .bdot{background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:blink 1s ease-in-out infinite}
-
 .bdot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:all .3s}
 @keyframes blink{50%{opacity:.25}}
 
@@ -120,11 +110,7 @@ header{
    LEFT PANEL
    ============================================================ */
 .left-panel{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
-
-.video-wrap{
-  flex:1;position:relative;background:#000;min-height:0;
-}
-
+.video-wrap{flex:1;position:relative;background:#000;min-height:0}
 .placeholder{
   position:absolute;inset:0;display:flex;flex-direction:column;
   align-items:center;justify-content:center;gap:10px;
@@ -138,12 +124,13 @@ header{
   padding:6px 14px;border-radius:20px;background:var(--surf);border:1px solid var(--border);
   font-family:var(--mono);font-size:.72rem;color:var(--muted);
 }
-
 #yt-player{position:absolute;inset:0;width:100%;height:100%}
 
-/* Note trail */
+/* ============================================================
+   WATERFALL  (replaces trail-wrap)
+   ============================================================ */
 .trail-wrap{
-  flex-shrink:0;height:100px;
+  flex-shrink:0;height:160px;                    /* taller for falling notes */
   background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
   border-top:1px solid var(--border);position:relative;overflow:hidden;
 }
@@ -152,6 +139,17 @@ header{
   position:absolute;top:6px;left:10px;
   font-family:var(--mono);font-size:.62rem;color:var(--muted);
   letter-spacing:.06em;text-transform:uppercase;pointer-events:none;
+}
+/* Time ruler labels drawn via CSS so they sit on top of canvas */
+.wf-time-top{
+  position:absolute;top:8px;right:10px;
+  font-family:var(--mono);font-size:.58rem;color:rgba(167,139,250,.45);
+  pointer-events:none;
+}
+.wf-time-bot{
+  position:absolute;bottom:14px;right:10px;
+  font-family:var(--mono);font-size:.58rem;color:rgba(167,139,250,.7);
+  pointer-events:none;
 }
 
 /* ============================================================
@@ -163,12 +161,7 @@ header{
   background:var(--bg2);
   scrollbar-width:thin;scrollbar-color:var(--surf2) transparent;
 }
-
-.card{
-  background:var(--surf);border:1px solid var(--border);
-  border-radius:var(--radius);padding:12px;
-}
-
+.card{background:var(--surf);border:1px solid var(--border);border-radius:var(--radius);padding:12px}
 .card-title{
   font-family:var(--mono);font-size:.62rem;font-weight:700;
   letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
@@ -177,19 +170,14 @@ header{
 
 /* Speed */
 .speed-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
-.speed-val{
-  font-family:var(--mono);font-size:.82rem;color:var(--cyan);
-  min-width:34px;text-align:right;
-}
-
+.speed-val{font-family:var(--mono);font-size:.82rem;color:var(--cyan);min-width:34px;text-align:right}
 input[type=range]{
   -webkit-appearance:none;flex:1;height:3px;
   background:var(--surf2);border-radius:2px;outline:none;cursor:pointer;
 }
 input[type=range]::-webkit-slider-thumb{
   -webkit-appearance:none;width:14px;height:14px;
-  background:var(--cyan);border-radius:50%;cursor:pointer;
-  box-shadow:0 0 8px var(--cyan);
+  background:var(--cyan);border-radius:50%;cursor:pointer;box-shadow:0 0 8px var(--cyan);
 }
 
 /* Transport */
@@ -201,17 +189,12 @@ input[type=range]::-webkit-slider-thumb{
   font-family:var(--sans);font-weight:600;
 }
 .tbtn:hover{background:var(--surf);border-color:var(--cyan);color:var(--cyan)}
-.tbtn.play-btn{
-  background:var(--cyan);color:#000;border-color:var(--cyan);font-size:1.05rem;
-}
+.tbtn.play-btn{background:var(--cyan);color:#000;border-color:var(--cyan);font-size:1.05rem}
 .tbtn.play-btn:hover{opacity:.85}
 
 /* Loop */
 .loop-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
-.loop-info{
-  font-family:var(--mono);font-size:.7rem;color:var(--muted);
-  display:flex;gap:8px;justify-content:center;
-}
+.loop-info{font-family:var(--mono);font-size:.7rem;color:var(--muted);display:flex;gap:8px;justify-content:center}
 .loop-info span{color:var(--text)}
 
 /* Detected note */
@@ -223,6 +206,7 @@ input[type=range]::-webkit-slider-thumb{
   transition:all .08s;
 }
 .note-name.dim{color:var(--muted);text-shadow:none}
+.note-name.chord-mode{font-size:1.5rem;letter-spacing:-.01em} /* smaller when showing chord */
 .note-info{font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:4px}
 
 /* Ghost button */
@@ -247,6 +231,15 @@ input[type=range]::-webkit-slider-thumb{
 .capture-btn:hover{background:rgba(0,212,255,.25)}
 .capture-btn.stop{background:var(--red-dim);border-color:rgba(248,113,113,.35);color:var(--red)}
 
+/* Chord display row */
+.chord-notes{
+  display:flex;flex-wrap:wrap;gap:4px;justify-content:center;min-height:18px;margin-top:4px;
+}
+.chord-chip{
+  background:var(--purple-dim);border:1px solid rgba(167,139,250,.3);color:var(--purple);
+  border-radius:4px;padding:2px 7px;font-family:var(--mono);font-size:.68rem;font-weight:700;
+}
+
 /* MIDI chips */
 .midi-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:20px;margin-top:8px}
 .chip{
@@ -256,7 +249,6 @@ input[type=range]::-webkit-slider-thumb{
 
 /* Toggle */
 .toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:.84rem}
-
 .toggle{position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0}
 .toggle input{display:none}
 .ttrack{
@@ -278,14 +270,17 @@ input[type=range]::-webkit-slider-thumb{
 .score-box:last-child .score-num{color:var(--red)}
 .score-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
 
+/* Waterfall speed */
+.wf-speed-row{display:flex;align-items:center;gap:8px;margin-top:8px}
+.wf-speed-val{font-family:var(--mono);font-size:.72rem;color:var(--purple);min-width:28px;text-align:right}
+
 /* ============================================================
    PIANO
    ============================================================ */
 .piano-section{
   flex-shrink:0;
   background:linear-gradient(180deg,var(--surf) 0%,var(--bg2) 100%);
-  border-top:1px solid var(--border);
-  padding:10px 0 8px;
+  border-top:1px solid var(--border);padding:10px 0 8px;
 }
 .piano-scroll{
   overflow-x:auto;padding:0 12px 4px;
@@ -293,66 +288,37 @@ input[type=range]::-webkit-slider-thumb{
 }
 .piano-scroll::-webkit-scrollbar{height:3px}
 .piano-scroll::-webkit-scrollbar-thumb{background:var(--surf2);border-radius:2px}
-
 #piano-wrap{position:relative;display:inline-block}
 
 .wkey{
   position:absolute;bottom:0;
   width:var(--wkey-w);height:var(--wkey-h);
   background:linear-gradient(180deg,#e8eaf6 0%,#ffffff 60%);
-  border:1px solid #b0b4cc;border-top:none;
-  border-radius:0 0 5px 5px;
+  border:1px solid #b0b4cc;border-top:none;border-radius:0 0 5px 5px;
   cursor:pointer;transition:background .07s;z-index:1;
 }
 .wkey:hover{background:linear-gradient(180deg,#d0d4f0 0%,#f0f0ff 60%)}
-
 .bkey{
   position:absolute;top:0;
   width:var(--bkey-w);height:var(--bkey-h);
   background:linear-gradient(180deg,#1e1e30 0%,#0a0a18 100%);
-  border-radius:0 0 4px 4px;
-  cursor:pointer;z-index:3;transition:background .07s;
+  border-radius:0 0 4px 4px;cursor:pointer;z-index:3;transition:background .07s;
 }
 .bkey:hover{background:linear-gradient(180deg,#2a2a44 0%,#14141e 100%)}
-
 .c-label{
   position:absolute;bottom:5px;left:50%;transform:translateX(-50%);
   font-family:var(--mono);font-size:8px;color:#9098b0;pointer-events:none;
 }
 
 /* Active key states */
-.key.midi-lit.wkey{
-  background:linear-gradient(180deg,#86efac,#10b981) !important;
-  box-shadow:0 0 18px rgba(16,185,129,.7);border-color:#10b981;
-}
-.key.midi-lit.bkey{
-  background:linear-gradient(180deg,#34d399,#059669) !important;
-  box-shadow:0 0 18px rgba(16,185,129,.8);
-}
-.key.det-lit.wkey{
-  background:linear-gradient(180deg,#c4b5fd,#8b5cf6) !important;
-  box-shadow:0 0 18px rgba(139,92,246,.6);border-color:#8b5cf6;
-}
-.key.det-lit.bkey{
-  background:linear-gradient(180deg,#a78bfa,#7c3aed) !important;
-  box-shadow:0 0 18px rgba(139,92,246,.7);
-}
-.key.both-lit.wkey{
-  background:linear-gradient(180deg,#67e8f9,#06b6d4) !important;
-  box-shadow:0 0 26px rgba(0,212,255,.8);border-color:var(--cyan);
-}
-.key.both-lit.bkey{
-  background:linear-gradient(180deg,#22d3ee,#0891b2) !important;
-  box-shadow:0 0 26px rgba(0,212,255,.9);
-}
-.key.wrong-flash.wkey{
-  background:linear-gradient(180deg,#fca5a5,#ef4444) !important;
-  box-shadow:0 0 16px rgba(239,68,68,.6);
-}
-.key.wrong-flash.bkey{
-  background:linear-gradient(180deg,#f87171,#dc2626) !important;
-  box-shadow:0 0 16px rgba(239,68,68,.7);
-}
+.key.midi-lit.wkey{background:linear-gradient(180deg,#86efac,#10b981)!important;box-shadow:0 0 18px rgba(16,185,129,.7);border-color:#10b981}
+.key.midi-lit.bkey{background:linear-gradient(180deg,#34d399,#059669)!important;box-shadow:0 0 18px rgba(16,185,129,.8)}
+.key.det-lit.wkey{background:linear-gradient(180deg,#c4b5fd,#8b5cf6)!important;box-shadow:0 0 18px rgba(139,92,246,.6);border-color:#8b5cf6}
+.key.det-lit.bkey{background:linear-gradient(180deg,#a78bfa,#7c3aed)!important;box-shadow:0 0 18px rgba(139,92,246,.7)}
+.key.both-lit.wkey{background:linear-gradient(180deg,#67e8f9,#06b6d4)!important;box-shadow:0 0 26px rgba(0,212,255,.8);border-color:var(--cyan)}
+.key.both-lit.bkey{background:linear-gradient(180deg,#22d3ee,#0891b2)!important;box-shadow:0 0 26px rgba(0,212,255,.9)}
+.key.wrong-flash.wkey{background:linear-gradient(180deg,#fca5a5,#ef4444)!important;box-shadow:0 0 16px rgba(239,68,68,.6)}
+.key.wrong-flash.bkey{background:linear-gradient(180deg,#f87171,#dc2626)!important;box-shadow:0 0 16px rgba(239,68,68,.7)}
 
 /* ============================================================
    FEEDBACK TOAST
@@ -394,9 +360,7 @@ input[type=range]::-webkit-slider-thumb{
 }
 .modal-cancel:hover{border-color:var(--border2);color:var(--text)}
 
-/* ============================================================
-   SCROLLBAR GLOBALS
-   ============================================================ */
+/* Scrollbar globals */
 .right-panel::-webkit-scrollbar{width:3px}
 .right-panel::-webkit-scrollbar-thumb{background:var(--surf2);border-radius:2px}
 </style>
@@ -404,17 +368,13 @@ input[type=range]::-webkit-slider-thumb{
 <body>
 <div id="app">
 
-<!-- ============================================================
-     HEADER
-     ============================================================ -->
+<!-- HEADER -->
 <header>
   <div class="logo">🎹 PianoTutor</div>
-
   <div class="url-wrap">
     <input type="text" id="url-input" placeholder="Paste any YouTube piano tutorial URL…">
     <button class="load-btn" onclick="loadVideo()">▶ Load</button>
   </div>
-
   <div class="hdr-badges">
     <div class="badge" id="audio-badge" onclick="toggleCapture()">
       <div class="bdot" id="audio-dot"></div>
@@ -427,9 +387,7 @@ input[type=range]::-webkit-slider-thumb{
   </div>
 </header>
 
-<!-- ============================================================
-     MAIN
-     ============================================================ -->
+<!-- MAIN -->
 <div class="main">
 
   <!-- LEFT -->
@@ -439,15 +397,18 @@ input[type=range]::-webkit-slider-thumb{
         <div class="emo">🎵</div>
         <h2>Load a Piano Tutorial</h2>
         <p>Paste any YouTube piano tutorial URL above and click Load.<br>
-           Then click <strong>Audio</strong> in the header to capture the tab's audio — notes will light up on your piano in real time.</p>
+           Then click <strong>Audio</strong> in the header to capture tab audio — notes will fall on the waterfall and light up on the piano.</p>
         <div class="hint">💡 Connect your MIDI piano for interactive practice</div>
       </div>
       <div id="yt-player"></div>
     </div>
 
+    <!-- WATERFALL -->
     <div class="trail-wrap">
       <canvas id="trail-canvas"></canvas>
-      <div class="trail-label">note trail</div>
+      <div class="trail-label">waterfall</div>
+      <div class="wf-time-top" id="wf-time-top">1.4s</div>
+      <div class="wf-time-bot">now ↓</div>
     </div>
   </div>
 
@@ -482,7 +443,7 @@ input[type=range]::-webkit-slider-thumb{
       </div>
     </div>
 
-    <!-- AUDIO -->
+    <!-- AUDIO / WATERFALL -->
     <div class="card">
       <div class="card-title">🎧 Audio Detection</div>
       <button class="capture-btn" id="capture-btn" onclick="toggleCapture()">
@@ -491,6 +452,14 @@ input[type=range]::-webkit-slider-thumb{
       <div class="note-display">
         <div class="note-name dim" id="det-name">—</div>
         <div class="note-info" id="det-info">No audio captured</div>
+        <div class="chord-notes" id="chord-chips"></div>
+      </div>
+      <!-- Waterfall fall speed -->
+      <div class="wf-speed-row">
+        <span style="font-size:.75rem;color:var(--muted)">Fall speed</span>
+        <input type="range" id="wf-speed-slider" min="600" max="2800" step="200" value="1400"
+               oninput="setFallDuration(+this.value)" style="flex:1">
+        <span class="wf-speed-val" id="wf-speed-val">1.4s</span>
       </div>
     </div>
 
@@ -505,7 +474,7 @@ input[type=range]::-webkit-slider-thumb{
     <div class="card">
       <div class="card-title">🎮 Practice Mode</div>
       <div class="toggle-row">
-        <span>Pause on new note</span>
+        <span>Pause on new note/chord</span>
         <label class="toggle">
           <input type="checkbox" id="practice-chk" onchange="togglePractice()">
           <div class="ttrack"></div>
@@ -514,7 +483,8 @@ input[type=range]::-webkit-slider-thumb{
       <div class="toggle-row">
         <span>Highlight target key</span>
         <label class="toggle">
-          <input type="checkbox" id="hint-chk" checked>
+          <!-- FIX: was checked by default and wired to onchange that refreshes all det-lit keys -->
+          <input type="checkbox" id="hint-chk" checked onchange="onHintToggle()">
           <div class="ttrack"></div>
         </label>
       </div>
@@ -567,7 +537,7 @@ input[type=range]::-webkit-slider-thumb{
 <!-- TOAST -->
 <div id="toast"></div>
 
-<!-- CAPTURE INSTRUCTION MODAL -->
+<!-- CAPTURE MODAL -->
 <div id="capture-modal">
   <div class="modal-box">
     <h3>🎧 Capture Tab Audio</h3>
@@ -578,7 +548,7 @@ input[type=range]::-webkit-slider-thumb{
       <li>Click <strong>Share</strong> to confirm</li>
     </ol>
     <p style="margin-top:12px;font-size:.8rem;color:var(--muted)">
-      ⚠️ Works best in Chrome / Edge. The app will detect piano notes from the YouTube audio and highlight them on your keyboard.
+      ⚠️ Works best in Chrome / Edge. Notes appear on the waterfall and land on your keyboard.
     </p>
     <div class="modal-actions">
       <button class="load-btn" onclick="startCapture()">Got it — Start Capture</button>
@@ -587,7 +557,6 @@ input[type=range]::-webkit-slider-thumb{
   </div>
 </div>
 
-<!-- YouTube IFrame API -->
 <script src="https://www.youtube.com/iframe_api"></script>
 
 <script>
@@ -597,16 +566,21 @@ input[type=range]::-webkit-slider-thumb{
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_PCS  = new Set([1,3,6,8,10]);
 const WW = 28, WH = 118, BW = 17, BH = 70;
-const PIANO_LO = 36; // C2
-const PIANO_HI = 96; // C7
-const PIANO_SCROLL_PADDING = 12; // matches CSS padding-left on .piano-scroll
+const PIANO_LO = 36;  // C2
+const PIANO_HI = 96;  // C7
+const PIANO_SCROLL_PADDING = 12;
+
+// Chord window: notes arriving within this ms of each other count as one chord
+const CHORD_WINDOW_MS = 280;
+// How long arrival flashes / chord state persists
+const CHORD_DECAY_MS = 600;
 
 /* ============================================================
    STATE
    ============================================================ */
 let ytPlayer = null, playerReady = false, isPlaying = false;
 let loopA = null, loopB = null, loopTimer = null;
-let ytAPIReady = false; // track when YouTube API fires its callback
+let ytAPIReady = false;
 
 let audioCtx = null, analyser = null, captureStream = null;
 let pitchTimer = null, isCapturing = false;
@@ -614,16 +588,22 @@ let pitchTimer = null, isCapturing = false;
 let midiAccess = null, midiConnected = false;
 let activeMidi = new Set();
 
-let detectedMidi = null, detectedFreq = null;
-let prevDetectedMidi = null;
+// ── WATERFALL / CHORD STATE ──────────────────────────────────
+let FALL_DURATION = 1400;           // ms; adjustable via slider
+let pendingNotes  = [];             // { midi, freq, arrivesAt } — falling blocks
+let lastQueuedMidi = null;          // dedup: don't re-queue the same sustained note
+let recentArrivals = [];            // { midi, freq, t } — arrived in last CHORD_DECAY_MS
+let detectedChord  = new Set();     // midi numbers currently "lit" from audio
+let midiFlashTrail = [];            // { midi, t } — brief green flash when MIDI pressed
 
+// ── PRACTICE ────────────────────────────────────────────────
 let practiceMode = false, practicePaused = false;
 let scoreCorrect = 0, scoreMiss = 0;
+let targetChord  = new Set();       // chord user must play to resume
 
-let keyEls   = {};  // midi number → DOM element
-let keyXPos  = {};  // midi number → center x pixel (relative to piano-wrap)
-
-let noteTrail = [];
+// ── PIANO ───────────────────────────────────────────────────
+let keyEls  = {};
+let keyXPos = {};
 
 /* ============================================================
    UTILITIES
@@ -635,9 +615,10 @@ function formatTime(s){
   const m = Math.floor(s / 60), sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2,'0')}`;
 }
+function hintEnabled(){ return document.getElementById('hint-chk').checked; }
 
 /* ============================================================
-   BUILD PIANO  (single clean pass)
+   BUILD PIANO
    ============================================================ */
 function buildPiano(){
   const wrap = document.getElementById('piano-wrap');
@@ -645,18 +626,13 @@ function buildPiano(){
   keyEls  = {};
   keyXPos = {};
 
-  // Single pass: count white keys and compute positions
-  let wi = 0; // running white-key counter
+  let wi = 0;
   const keys = [];
 
   for(let m = PIANO_LO; m <= PIANO_HI; m++){
     const pc      = m % 12;
     const isBlack = BLACK_PCS.has(pc);
-
     if(isBlack){
-      // Black key sits after the most-recent white key
-      // Center it at: (wi-1)*WW + WW  (= right edge of previous white key)
-      // then offset left by BW/2 so it straddles the boundary
       keys.push({ m, pc, isBlack, x: (wi - 1) * WW + WW - BW / 2 });
     } else {
       keys.push({ m, pc, isBlack, wi, x: wi * WW });
@@ -664,56 +640,48 @@ function buildPiano(){
     }
   }
 
-  const totalWhites = wi;
-  wrap.style.width  = (totalWhites * WW) + 'px';
+  wrap.style.width  = (wi * WW) + 'px';
   wrap.style.height = WH + 'px';
 
-  // Render white keys first (z-index below black)
   for(const k of keys){
     if(k.isBlack) continue;
     const el = document.createElement('div');
     el.className   = 'key wkey';
     el.style.left  = k.x + 'px';
     el.dataset.midi = k.m;
-
     if(k.pc === 0){
       const lbl = document.createElement('span');
       lbl.className   = 'c-label';
       lbl.textContent = midiName(k.m);
       el.appendChild(lbl);
     }
-
     el.addEventListener('pointerdown', e => { e.preventDefault(); clickNoteOn(k.m); el.setPointerCapture(e.pointerId); });
     el.addEventListener('pointerup',    () => clickNoteOff(k.m));
     el.addEventListener('pointercancel',() => clickNoteOff(k.m));
     wrap.appendChild(el);
-
     keyEls[k.m]  = el;
-    keyXPos[k.m] = k.x + WW / 2;  // center of white key
+    keyXPos[k.m] = k.x + WW / 2;
   }
 
-  // Render black keys on top
   for(const k of keys){
     if(!k.isBlack) continue;
     const el = document.createElement('div');
     el.className   = 'key bkey';
     el.style.left  = k.x + 'px';
     el.dataset.midi = k.m;
-
     el.addEventListener('pointerdown', e => { e.preventDefault(); clickNoteOn(k.m); el.setPointerCapture(e.pointerId); });
     el.addEventListener('pointerup',    () => clickNoteOff(k.m));
     el.addEventListener('pointercancel',() => clickNoteOff(k.m));
     wrap.appendChild(el);
-
     keyEls[k.m]  = el;
-    keyXPos[k.m] = k.x + BW / 2;  // center of black key
+    keyXPos[k.m] = k.x + BW / 2;
   }
 }
 
 function clickNoteOn(m){
   activeMidi.add(m);
+  midiFlashTrail.push({ midi: m, t: performance.now() });
   refreshKey(m);
-  noteTrail.push({ midi: m, t: performance.now(), src: 'midi' });
   updateChips();
 }
 function clickNoteOff(m){
@@ -722,15 +690,25 @@ function clickNoteOff(m){
   updateChips();
 }
 
+/* ============================================================
+   refreshKey  — FIX: respects hint-chk toggle
+   ============================================================ */
 function refreshKey(m){
   const el = keyEls[m];
   if(!el) return;
   const isMidi = activeMidi.has(m);
-  const isDet  = detectedMidi === m;
+  // ── HINT TOGGLE FIX ──────────────────────────────────────
+  // Only show purple "det-lit" when "Highlight target key" is ON
+  const isDet  = hintEnabled() && detectedChord.has(m);
   el.classList.remove('midi-lit','det-lit','both-lit','wrong-flash');
   if(isMidi && isDet)  el.classList.add('both-lit');
   else if(isMidi)      el.classList.add('midi-lit');
   else if(isDet)       el.classList.add('det-lit');
+}
+
+// Called when hint toggle changes — re-render every key in chord
+function onHintToggle(){
+  for(const m of detectedChord) refreshKey(m);
 }
 
 function flashWrong(m){
@@ -742,7 +720,7 @@ function flashWrong(m){
 }
 
 /* ============================================================
-   NOTE TRAIL CANVAS
+   WATERFALL CANVAS
    ============================================================ */
 const canvas = document.getElementById('trail-canvas');
 const ctx2d  = canvas.getContext('2d');
@@ -752,48 +730,212 @@ function syncCanvasSize(){
   canvas.height = canvas.offsetHeight;
 }
 
-function drawTrail(){
+function setFallDuration(ms){
+  FALL_DURATION = ms;
+  document.getElementById('wf-speed-val').textContent = (ms / 1000).toFixed(1) + 's';
+  document.getElementById('wf-time-top').textContent  = (ms / 1000).toFixed(1) + 's';
+}
+
+function drawWaterfall(){
   syncCanvasSize();
-  ctx2d.clearRect(0, 0, canvas.width, canvas.height);
+  const W = canvas.width, H = canvas.height;
+  ctx2d.clearRect(0, 0, W, H);
 
-  const now    = performance.now();
-  const maxAge = 3500;
-  noteTrail    = noteTrail.filter(n => now - n.t < maxAge);
-
-  const scrollEl   = document.querySelector('.piano-scroll');
+  const now       = performance.now();
+  const scrollEl  = document.querySelector('.piano-scroll');
   const scrollLeft = scrollEl ? scrollEl.scrollLeft : 0;
+  const hitY      = H - 8;   // the "now" line near bottom
 
-  for(const n of noteTrail){
-    const age  = now - n.t;
-    const frac = age / maxAge;
+  // ── Process arrivals ─────────────────────────────────────
+  const arrived = pendingNotes.filter(n => n.arrivesAt <= now);
+  pendingNotes  = pendingNotes.filter(n => n.arrivesAt  > now);
+
+  if(arrived.length > 0){
+    for(const n of arrived) recentArrivals.push({ midi: n.midi, freq: n.freq, t: now });
+    updateChordState(now);
+  }
+
+  // Expire old arrivals
+  recentArrivals = recentArrivals.filter(n => now - n.t < CHORD_DECAY_MS);
+  midiFlashTrail = midiFlashTrail.filter(n => now - n.t < 600);
+
+  // If all arrivals gone and no new pending, clear chord
+  if(recentArrivals.length === 0 && pendingNotes.length === 0 && detectedChord.size > 0){
+    const old = [...detectedChord];
+    detectedChord.clear();
+    targetChord.clear();
+    old.forEach(m => refreshKey(m));
+    updateDetDisplay();
+  }
+
+  // ── Lane highlights for notes in flight ──────────────────
+  const pendingSet = new Set(pendingNotes.map(n => n.midi));
+  for(const m of pendingSet){
+    const baseX = keyXPos[m];
+    if(baseX == null) continue;
+    const x   = baseX - scrollLeft + PIANO_SCROLL_PADDING;
+    const isB = BLACK_PCS.has(m % 12);
+    const lw  = isB ? BW : WW;
+    ctx2d.fillStyle = 'rgba(167,139,250,0.06)';
+    ctx2d.fillRect(x - lw / 2, 0, lw, H);
+  }
+
+  // ── Hit zone ─────────────────────────────────────────────
+  const hitGrad = ctx2d.createLinearGradient(0, hitY - 20, 0, hitY + 8);
+  hitGrad.addColorStop(0, 'rgba(167,139,250,0)');
+  hitGrad.addColorStop(1, 'rgba(167,139,250,0.2)');
+  ctx2d.fillStyle = hitGrad;
+  ctx2d.fillRect(0, hitY - 20, W, 28);
+
+  ctx2d.fillStyle = 'rgba(167,139,250,0.5)';
+  ctx2d.fillRect(0, hitY, W, 1);
+
+  // ── Falling blocks ───────────────────────────────────────
+  for(const n of pendingNotes){
+    const timeLeft = n.arrivesAt - now;
+    const progress = 1 - timeLeft / FALL_DURATION;  // 0=top … 1=hitY
+    const isB  = BLACK_PCS.has(n.midi % 12);
+    const bw   = isB ? BW - 2 : WW - 5;
+    const bh   = 14;
 
     const baseX = keyXPos[n.midi];
     if(baseX == null) continue;
-
-    // Translate piano-relative x to canvas x:
-    // canvas sits in .left-panel; piano-wrap has padding-left = PIANO_SCROLL_PADDING
     const x = baseX - scrollLeft + PIANO_SCROLL_PADDING;
-    const y = canvas.height * frac;
-    const isBlack = BLACK_PCS.has(n.midi % 12);
-    const w = isBlack ? BW : WW - 2;
-    const h = Math.max(6, 10 * (1 - frac));
-    const alpha = (1 - frac) * 0.9;
+    const y = progress * hitY;
 
-    if(n.src === 'yt'){
-      ctx2d.fillStyle  = `rgba(167,139,250,${alpha})`;
-      ctx2d.shadowColor = 'rgba(167,139,250,.9)';
-    } else {
-      ctx2d.fillStyle  = `rgba(52,211,153,${alpha})`;
-      ctx2d.shadowColor = 'rgba(52,211,153,.9)';
-    }
-    ctx2d.shadowBlur = 8;
+    const alpha = 0.45 + progress * 0.55;
+
+    const grad = ctx2d.createLinearGradient(0, y, 0, y + bh);
+    grad.addColorStop(0, `rgba(196,165,255,${alpha * 0.7})`);
+    grad.addColorStop(1, `rgba(139,92,246,${alpha})`);
+
+    ctx2d.shadowColor = `rgba(167,139,250,${alpha * 0.85})`;
+    ctx2d.shadowBlur  = 10;
+    ctx2d.fillStyle   = grad;
     ctx2d.beginPath();
-    ctx2d.roundRect(x - w / 2, y, w, h, 3);
+    ctx2d.roundRect(x - bw / 2, y, bw, bh, 3);
+    ctx2d.fill();
+
+    // Bright leading edge
+    ctx2d.fillStyle = `rgba(220,200,255,${alpha * 0.8})`;
+    ctx2d.fillRect(x - bw / 2, y + bh - 2, bw, 2);
+    ctx2d.shadowBlur = 0;
+  }
+
+  // ── Arrival flashes (purple burst at hit zone) ───────────
+  for(const n of recentArrivals){
+    const age  = (now - n.t) / 400;
+    if(age > 1) continue;
+    const baseX = keyXPos[n.midi];
+    if(baseX == null) continue;
+    const x   = baseX - scrollLeft + PIANO_SCROLL_PADDING;
+    const isB = BLACK_PCS.has(n.midi % 12);
+    const bw  = (isB ? BW : WW - 2) * (1 + age * 0.5);
+    const alpha = (1 - age) * 0.95;
+
+    ctx2d.shadowColor = 'rgba(167,139,250,0.9)';
+    ctx2d.shadowBlur  = 20 * (1 - age);
+    ctx2d.fillStyle   = `rgba(167,139,250,${alpha})`;
+    ctx2d.beginPath();
+    ctx2d.roundRect(x - bw / 2, hitY - 8, bw, 8, 2);
     ctx2d.fill();
     ctx2d.shadowBlur = 0;
   }
 
-  requestAnimationFrame(drawTrail);
+  // ── MIDI green flashes at bottom ─────────────────────────
+  for(const n of midiFlashTrail){
+    const age   = (now - n.t) / 600;
+    if(age > 1) continue;
+    const baseX = keyXPos[n.midi];
+    if(baseX == null) continue;
+    const x   = baseX - scrollLeft + PIANO_SCROLL_PADDING;
+    const isB = BLACK_PCS.has(n.midi % 12);
+    const bw  = isB ? BW - 2 : WW - 4;
+    const bh  = 12 * (1 - age);
+    const alpha = (1 - age) * 0.9;
+
+    ctx2d.shadowColor = `rgba(52,211,153,0.9)`;
+    ctx2d.shadowBlur  = 12 * (1 - age);
+    ctx2d.fillStyle   = `rgba(52,211,153,${alpha})`;
+    ctx2d.beginPath();
+    ctx2d.roundRect(x - bw / 2, H - bh, bw, bh, 3);
+    ctx2d.fill();
+    ctx2d.shadowBlur = 0;
+  }
+
+  requestAnimationFrame(drawWaterfall);
+}
+
+/* ============================================================
+   CHORD STATE UPDATE  — groups rapid sequential notes as chords
+   ============================================================ */
+function updateChordState(now){
+  // Build chord: all arrivals within CHORD_WINDOW_MS of the latest
+  const latest = Math.max(...recentArrivals.map(n => n.t));
+  const chordNotes = recentArrivals
+    .filter(n => latest - n.t <= CHORD_WINDOW_MS)
+    .map(n => n.midi);
+
+  const oldChord = new Set(detectedChord);
+  detectedChord  = new Set(chordNotes);
+  targetChord    = new Set(chordNotes);   // used by practice mode
+
+  // Refresh keys that changed
+  const affected = new Set([...oldChord, ...chordNotes]);
+  affected.forEach(m => refreshKey(m));
+
+  updateDetDisplay();
+
+  // Practice: pause on new chord
+  if(practiceMode && !practicePaused && chordNotes.length > 0){
+    // Only pause if it's a genuinely different chord
+    const sameChord = chordNotes.length === oldChord.size &&
+                      chordNotes.every(m => oldChord.has(m));
+    if(!sameChord) onNewPracticeNote();
+  }
+}
+
+/* ============================================================
+   DET DISPLAY  — shows single note or chord
+   ============================================================ */
+function updateDetDisplay(){
+  const nameEl  = document.getElementById('det-name');
+  const infoEl  = document.getElementById('det-info');
+  const chipsCont = document.getElementById('chord-chips');
+  chipsCont.innerHTML = '';
+
+  if(detectedChord.size === 0){
+    nameEl.textContent = '—';
+    nameEl.className   = 'note-name dim';
+    infoEl.textContent = isCapturing ? 'Listening for notes…' : 'No audio captured';
+    return;
+  }
+
+  const sorted = [...detectedChord].sort((a,b) => a - b);
+
+  if(sorted.length === 1){
+    const m  = sorted[0];
+    nameEl.textContent = midiName(m);
+    nameEl.className   = 'note-name';
+    const arrival = recentArrivals.find(n => n.midi === m);
+    infoEl.textContent = arrival
+      ? arrival.freq.toFixed(1) + ' Hz — MIDI ' + m
+      : 'MIDI ' + m;
+  } else {
+    // Chord: show root in big display, others as chips
+    const root = sorted[0];
+    nameEl.textContent = midiName(root);
+    nameEl.className   = 'note-name chord-mode';
+    infoEl.textContent = `${sorted.length}-note chord`;
+
+    // Chips for every note in chord
+    for(const m of sorted){
+      const c = document.createElement('span');
+      c.className   = 'chord-chip';
+      c.textContent = midiName(m);
+      chipsCont.appendChild(c);
+    }
+  }
 }
 
 /* ============================================================
@@ -808,14 +950,9 @@ function extractVideoId(url){
   return null;
 }
 
-// Called by YouTube IFrame API when it's ready
 function onYouTubeIframeAPIReady(){
   ytAPIReady = true;
-  // If loadVideo() was called before the API was ready, create the player now
-  if(window._pendingVideoId){
-    createPlayer(window._pendingVideoId);
-    window._pendingVideoId = null;
-  }
+  if(window._pendingVideoId){ createPlayer(window._pendingVideoId); window._pendingVideoId = null; }
 }
 
 function createPlayer(vid){
@@ -841,95 +978,54 @@ function loadVideo(){
   const url = document.getElementById('url-input').value.trim();
   const vid = extractVideoId(url);
   if(!vid){ showToast('⚠ Invalid URL','bad'); return; }
-
-  if(ytPlayer && playerReady){
-    ytPlayer.loadVideoById(vid);
-    document.getElementById('placeholder').style.display = 'none';
-    return;
-  }
-
-  if(ytAPIReady){
-    createPlayer(vid);
-  } else {
-    // API not ready yet — queue the video id
-    window._pendingVideoId = vid;
-    document.getElementById('placeholder').style.display = 'none';
-  }
+  if(ytPlayer && playerReady){ ytPlayer.loadVideoById(vid); document.getElementById('placeholder').style.display='none'; return; }
+  if(ytAPIReady){ createPlayer(vid); } else { window._pendingVideoId = vid; document.getElementById('placeholder').style.display='none'; }
 }
 
 function togglePlay(){
   if(!ytPlayer) return;
   isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
 }
-
 function seekRel(s){
   if(!ytPlayer || !playerReady) return;
   ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() + s), true);
 }
-
 function setSpeed(v){
   document.getElementById('speed-val').textContent = v + '×';
   if(ytPlayer && playerReady) ytPlayer.setPlaybackRate(v);
 }
-
-function setLoopA(){
-  if(!ytPlayer || !playerReady) return;
-  loopA = ytPlayer.getCurrentTime();
-  document.getElementById('loop-a-lbl').textContent = formatTime(loopA);
-}
-function setLoopB(){
-  if(!ytPlayer || !playerReady) return;
-  loopB = ytPlayer.getCurrentTime();
-  document.getElementById('loop-b-lbl').textContent = formatTime(loopB);
-}
-function clearLoop(){
-  loopA = null; loopB = null;
-  document.getElementById('loop-a-lbl').textContent = '—';
-  document.getElementById('loop-b-lbl').textContent = '—';
-}
+function setLoopA(){ if(!ytPlayer||!playerReady) return; loopA=ytPlayer.getCurrentTime(); document.getElementById('loop-a-lbl').textContent=formatTime(loopA); }
+function setLoopB(){ if(!ytPlayer||!playerReady) return; loopB=ytPlayer.getCurrentTime(); document.getElementById('loop-b-lbl').textContent=formatTime(loopB); }
+function clearLoop(){ loopA=null;loopB=null; document.getElementById('loop-a-lbl').textContent='—'; document.getElementById('loop-b-lbl').textContent='—'; }
 function startLoopWatcher(){
   if(loopTimer) clearInterval(loopTimer);
   loopTimer = setInterval(() => {
-    if(!ytPlayer || !playerReady || loopA == null || loopB == null) return;
-    if(ytPlayer.getCurrentTime() >= loopB) ytPlayer.seekTo(loopA, true);
+    if(!ytPlayer||!playerReady||loopA==null||loopB==null) return;
+    if(ytPlayer.getCurrentTime()>=loopB) ytPlayer.seekTo(loopA,true);
   }, 200);
 }
 
 /* ============================================================
    CAPTURE MODAL
    ============================================================ */
-function toggleCapture(){
-  if(isCapturing){ stopCapture(); return; }
-  document.getElementById('capture-modal').classList.add('open');
-}
-function closeModal(){
-  document.getElementById('capture-modal').classList.remove('open');
-}
+function toggleCapture(){ if(isCapturing){ stopCapture(); return; } document.getElementById('capture-modal').classList.add('open'); }
+function closeModal(){ document.getElementById('capture-modal').classList.remove('open'); }
 
 async function startCapture(){
   closeModal();
   try {
     captureStream = await navigator.mediaDevices.getDisplayMedia({
-      video: true,   // required by spec; we drop it immediately
-      audio: {
-        echoCancellation: false,
-        noiseSuppression: false,
-        autoGainControl:  false,
-        sampleRate: 44100,
-        channelCount: 1
-      },
+      video: true,
+      audio: { echoCancellation:false, noiseSuppression:false, autoGainControl:false, sampleRate:44100, channelCount:1 },
       preferCurrentTab: true
     });
-
-    // Drop video track — we only need audio
     captureStream.getVideoTracks().forEach(t => t.stop());
 
     const audioTracks = captureStream.getAudioTracks();
     if(!audioTracks.length){
-      alert('No audio track found.\nMake sure to check "Share tab audio" in the browser dialog and select the correct tab.');
+      alert('No audio track found.\nMake sure to check "Share tab audio" in the browser dialog.');
       captureStream.getTracks().forEach(t => t.stop());
-      captureStream = null;
-      return;
+      captureStream = null; return;
     }
 
     audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
@@ -957,42 +1053,44 @@ async function startCapture(){
 
 function stopCapture(){
   isCapturing = false;
-  if(pitchTimer)     clearInterval(pitchTimer);
-  if(captureStream)  captureStream.getTracks().forEach(t => t.stop());
-  if(audioCtx)       audioCtx.close().catch(() => {});
+  if(pitchTimer)    clearInterval(pitchTimer);
+  if(captureStream) captureStream.getTracks().forEach(t => t.stop());
+  if(audioCtx)      audioCtx.close().catch(()=>{});
   captureStream = null; audioCtx = null; analyser = null;
 
-  const prev = detectedMidi;
-  detectedMidi = null; detectedFreq = null;
-  if(prev != null) refreshKey(prev);
-  updateDetDisplay(null, null);
+  // Clear waterfall state
+  pendingNotes  = [];
+  recentArrivals = [];
+  lastQueuedMidi = null;
+  midiFlashTrail = [];
+
+  const old = [...detectedChord];
+  detectedChord.clear();
+  targetChord.clear();
+  old.forEach(m => refreshKey(m));
+  updateDetDisplay();
 
   document.getElementById('capture-btn').textContent = 'Capture Tab Audio';
   document.getElementById('capture-btn').classList.remove('stop');
   document.getElementById('audio-badge').classList.remove('listening');
   document.getElementById('audio-label').textContent = 'Audio';
+  document.getElementById('chord-chips').innerHTML = '';
 }
 
 /* ============================================================
-   PITCH DETECTION — Normalized Autocorrelation (ACF2+)
+   PITCH DETECTION — queues to waterfall instead of direct lit
    ============================================================ */
 function runPitchDetection(){
   if(!analyser) return;
   const buf = new Float32Array(analyser.fftSize);
   analyser.getFloatTimeDomainData(buf);
 
-  // RMS silence gate
   let rms = 0;
-  for(let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+  for(let i=0;i<buf.length;i++) rms += buf[i]*buf[i];
   rms = Math.sqrt(rms / buf.length);
 
   if(rms < 0.007){
-    if(detectedMidi !== null){
-      const prev = detectedMidi;
-      detectedMidi = null; detectedFreq = null;
-      refreshKey(prev);
-      updateDetDisplay(null, null);
-    }
+    lastQueuedMidi = null;  // reset dedup on silence
     return;
   }
 
@@ -1002,107 +1100,52 @@ function runPitchDetection(){
   const midi = freqToMidi(freq);
   if(midi < 21 || midi > 108) return;
 
-  const prevMidi = detectedMidi;
-  detectedMidi   = midi;
-  detectedFreq   = freq;
-
-  if(prevMidi !== null && prevMidi !== midi) refreshKey(prevMidi);
-  refreshKey(midi);
-  updateDetDisplay(midi, freq);
-  noteTrail.push({ midi, t: performance.now(), src: 'yt' });
-
-  // Practice mode: pause on each new note
-  if(practiceMode && !practicePaused && midi !== prevMidi){
-    onNewPracticeNote(midi);
+  // ── WATERFALL: queue falling block (dedup continuous notes) ──
+  if(midi !== lastQueuedMidi){
+    pendingNotes.push({ midi, freq, arrivesAt: performance.now() + FALL_DURATION });
+    lastQueuedMidi = midi;
   }
 }
 
+/* ACF2+ pitch estimator — unchanged */
 function acf2plus(buf, sr){
-  const n    = buf.length;
-  const half = Math.floor(n / 2);
-
-  // Find first negative zero-crossing and last positive zero-crossing
-  let r1 = 0, r2 = n - 1;
-  for(let i = 0; i < half; i++){ if(buf[i] < 0){ r1 = i; break; } }
-  for(let i = n - 1; i > 0; i--){ if(buf[i] > 0){ r2 = i; break; } }
-
-  const trimmed = buf.slice(r1, r2 + 1);
-  const tLen    = trimmed.length;
-  if(tLen < 2) return -1;
-
-  // Autocorrelation
-  const corr = new Float32Array(tLen);
-  for(let lag = 0; lag < tLen; lag++){
-    let s = 0;
-    for(let i = 0; i < tLen - lag; i++) s += trimmed[i] * trimmed[i + lag];
-    corr[lag] = s;
-  }
-
-  // Find first dip past zero-lag
-  let d = 1;
-  while(d < tLen - 1 && corr[d] > corr[d - 1]) d++;
-
-  // Find highest peak after dip
-  let maxVal = -Infinity, maxLag = d;
-  for(let i = d; i < tLen; i++){
-    if(corr[i] > maxVal){ maxVal = corr[i]; maxLag = i; }
-  }
-
-  // Must be a real periodic peak (>50 % of zero-lag energy)
-  if(corr[0] === 0 || maxVal / corr[0] < 0.5) return -1;
-
-  // Parabolic interpolation for sub-sample accuracy
-  const a     = maxLag > 0      ? corr[maxLag - 1] : 0;
-  const b     = corr[maxLag];
-  const c     = maxLag < tLen-1 ? corr[maxLag + 1] : 0;
-  const denom = 2 * (2 * b - a - c);
-  const shift = denom !== 0 ? (a - c) / denom : 0;
-
-  return sr / (maxLag + shift);
-}
-
-function updateDetDisplay(midi, freq){
-  const nameEl = document.getElementById('det-name');
-  const infoEl = document.getElementById('det-info');
-  if(midi == null){
-    nameEl.textContent = '—';
-    nameEl.classList.add('dim');
-    infoEl.textContent = isCapturing ? 'Listening for notes…' : 'No audio captured';
-  } else {
-    nameEl.textContent = midiName(midi);
-    nameEl.classList.remove('dim');
-    infoEl.textContent = freq.toFixed(1) + ' Hz — MIDI ' + midi;
-  }
+  const n=buf.length, half=Math.floor(n/2);
+  let r1=0, r2=n-1;
+  for(let i=0;i<half;i++){ if(buf[i]<0){r1=i;break;} }
+  for(let i=n-1;i>0;i--){ if(buf[i]>0){r2=i;break;} }
+  const trimmed=buf.slice(r1,r2+1), tLen=trimmed.length;
+  if(tLen<2) return -1;
+  const corr=new Float32Array(tLen);
+  for(let lag=0;lag<tLen;lag++){ let s=0; for(let i=0;i<tLen-lag;i++) s+=trimmed[i]*trimmed[i+lag]; corr[lag]=s; }
+  let d=1;
+  while(d<tLen-1&&corr[d]>corr[d-1]) d++;
+  let maxVal=-Infinity, maxLag=d;
+  for(let i=d;i<tLen;i++){ if(corr[i]>maxVal){maxVal=corr[i];maxLag=i;} }
+  if(corr[0]===0||maxVal/corr[0]<0.5) return -1;
+  const a=maxLag>0?corr[maxLag-1]:0, b=corr[maxLag], c=maxLag<tLen-1?corr[maxLag+1]:0;
+  const denom=2*(2*b-a-c);
+  const shift=denom!==0?(a-c)/denom:0;
+  return sr/(maxLag+shift);
 }
 
 /* ============================================================
    MIDI
    ============================================================ */
 async function initMidi(){
-  if(!navigator.requestMIDIAccess){
-    alert('WebMIDI not supported in this browser.\nUse Chrome or Edge.');
-    return;
-  }
+  if(!navigator.requestMIDIAccess){ alert('WebMIDI not supported. Use Chrome or Edge.'); return; }
   try {
     midiAccess = await navigator.requestMIDIAccess();
     hookMidiInputs();
     midiAccess.onstatechange = hookMidiInputs;
-
     midiConnected = true;
     const btn = document.getElementById('midi-btn');
     btn.textContent = '✓ Piano Connected';
     btn.classList.add('on');
     document.getElementById('midi-badge').classList.add('active');
     document.getElementById('midi-label').textContent = 'MIDI';
-  } catch(e){
-    alert('MIDI access denied.\n' + e.message);
-  }
+  } catch(e){ alert('MIDI access denied.\n'+e.message); }
 }
-
-function hookMidiInputs(){
-  if(!midiAccess) return;
-  for(const input of midiAccess.inputs.values()) input.onmidimessage = onMidi;
-}
+function hookMidiInputs(){ if(!midiAccess) return; for(const input of midiAccess.inputs.values()) input.onmidimessage=onMidi; }
 
 function onMidi(e){
   const [st, note, vel] = e.data;
@@ -1110,12 +1153,23 @@ function onMidi(e){
 
   if(cmd === 0x90 && vel > 0){
     activeMidi.add(note);
+    midiFlashTrail.push({ midi: note, t: performance.now() });
     refreshKey(note);
-    noteTrail.push({ midi: note, t: performance.now(), src: 'midi' });
     updateChips();
-    if(practiceMode && practicePaused && detectedMidi != null){
-      note === detectedMidi ? onPracticeCorrect(note) : onPracticeWrong(note);
+
+    // ── CHORD PRACTICE MATCHING ────────────────────────────
+    if(practiceMode && practicePaused && targetChord.size > 0){
+      if(targetChord.has(note)){
+        // Check if ALL target chord notes are now pressed
+        const allPressed = [...targetChord].every(m => activeMidi.has(m));
+        if(allPressed) onPracticeCorrect();
+        // else: partial chord — keep waiting, no penalty
+      } else {
+        // Pressed a note NOT in the target chord
+        onPracticeWrong(note);
+      }
     }
+
   } else if(cmd === 0x80 || (cmd === 0x90 && vel === 0)){
     activeMidi.delete(note);
     refreshKey(note);
@@ -1126,9 +1180,9 @@ function onMidi(e){
 function updateChips(){
   const el = document.getElementById('midi-chips');
   el.innerHTML = '';
-  for(const m of [...activeMidi].sort((a,b) => a - b)){
+  for(const m of [...activeMidi].sort((a,b)=>a-b)){
     const c = document.createElement('div');
-    c.className   = 'chip';
+    c.className = 'chip';
     c.textContent = midiName(m);
     el.appendChild(c);
   }
@@ -1138,18 +1192,18 @@ function updateChips(){
    PRACTICE MODE
    ============================================================ */
 function togglePractice(){
-  practiceMode  = document.getElementById('practice-chk').checked;
+  practiceMode   = document.getElementById('practice-chk').checked;
   practicePaused = false;
   if(!practiceMode && ytPlayer && playerReady) ytPlayer.playVideo();
 }
 
-function onNewPracticeNote(midi){
+function onNewPracticeNote(){
   if(!ytPlayer || !practiceMode) return;
   ytPlayer.pauseVideo();
   practicePaused = true;
 }
 
-function onPracticeCorrect(midi){
+function onPracticeCorrect(){
   scoreCorrect++;
   document.getElementById('sc-correct').textContent = scoreCorrect;
   practicePaused = false;
@@ -1157,10 +1211,10 @@ function onPracticeCorrect(midi){
   if(ytPlayer && playerReady) ytPlayer.playVideo();
 }
 
-function onPracticeWrong(midi){
+function onPracticeWrong(note){
   scoreMiss++;
   document.getElementById('sc-miss').textContent = scoreMiss;
-  flashWrong(midi);
+  flashWrong(note);
   showToast('✗', 'bad');
 }
 
@@ -1177,9 +1231,9 @@ let toastTO = null;
 function showToast(txt, cls){
   const t = document.getElementById('toast');
   t.textContent = txt;
-  t.className = 'show ' + cls;
+  t.className   = 'show '+cls;
   clearTimeout(toastTO);
-  toastTO = setTimeout(() => t.className = '', 700);
+  toastTO = setTimeout(() => t.className='', 700);
 }
 
 /* ============================================================
@@ -1187,20 +1241,18 @@ function showToast(txt, cls){
    ============================================================ */
 window.addEventListener('DOMContentLoaded', () => {
   buildPiano();
-  drawTrail();
+  drawWaterfall();   // replaces drawTrail
 
   document.getElementById('url-input').value = 'https://www.youtube.com/watch?v=axl1WM_C3uc';
-  document.getElementById('url-input').addEventListener('keydown', e => { if(e.key === 'Enter') loadVideo(); });
+  document.getElementById('url-input').addEventListener('keydown', e => { if(e.key==='Enter') loadVideo(); });
 
   window.addEventListener('resize', syncCanvasSize);
 
-  // Scroll piano to C3 area by default (12 white keys in from C2)
   setTimeout(() => {
     const s = document.querySelector('.piano-scroll');
     if(s) s.scrollLeft = 12 * WW;
   }, 200);
 
-  // Auto-connect MIDI if a device is already available
   if(navigator.requestMIDIAccess){
     navigator.requestMIDIAccess().then(acc => {
       if(acc.inputs.size > 0){
@@ -1213,7 +1265,7 @@ window.addEventListener('DOMContentLoaded', () => {
         document.getElementById('midi-btn').classList.add('on');
         acc.onstatechange = hookMidiInputs;
       }
-    }).catch(() => {});
+    }).catch(()=>{});
   }
 });
 
@@ -1221,12 +1273,12 @@ window.addEventListener('DOMContentLoaded', () => {
    KEYBOARD SHORTCUTS
    ============================================================ */
 document.addEventListener('keydown', e => {
-  if(e.target.tagName === 'INPUT') return;
-  if(e.key === ' ')          { e.preventDefault(); togglePlay(); }
-  if(e.key === 'ArrowLeft')  seekRel(-5);
-  if(e.key === 'ArrowRight') seekRel(5);
-  if(e.key === 'a')          setLoopA();
-  if(e.key === 'b')          setLoopB();
+  if(e.target.tagName==='INPUT') return;
+  if(e.key===' ')         { e.preventDefault(); togglePlay(); }
+  if(e.key==='ArrowLeft') seekRel(-5);
+  if(e.key==='ArrowRight')seekRel(5);
+  if(e.key==='a')         setLoopA();
+  if(e.key==='b')         setLoopB();
 });
 </script>
 </body>
