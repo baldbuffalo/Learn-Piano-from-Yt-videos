@@ -1,0 +1,1207 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>🎹 PianoTutor — Learn Piano from YouTube</title>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Space+Mono:ital,wght@0,400;0,700;1,400&family=Syne:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+/* ============================================================
+   DESIGN SYSTEM
+   ============================================================ */
+:root {
+  --bg:       #07080f;
+  --bg2:      #0c0d18;
+  --surf:     #111220;
+  --surf2:    #181928;
+  --border:   rgba(255,255,255,0.07);
+  --border2:  rgba(255,255,255,0.12);
+  --cyan:     #00d4ff;
+  --cyan-dim: rgba(0,212,255,0.15);
+  --purple:   #a78bfa;
+  --purple-dim:rgba(167,139,250,0.18);
+  --green:    #34d399;
+  --green-dim:rgba(52,211,153,0.18);
+  --red:      #f87171;
+  --red-dim:  rgba(248,113,113,0.18);
+  --amber:    #fbbf24;
+  --text:     #dde4f0;
+  --muted:    #5a6080;
+  --mono:     'Space Mono', monospace;
+  --sans:     'Syne', sans-serif;
+  --radius:   8px;
+  --wkey-w:   28px;
+  --wkey-h:   118px;
+  --bkey-w:   17px;
+  --bkey-h:   70px;
+}
+
+*,*::before,*::after{margin:0;padding:0;box-sizing:border-box}
+html,body{height:100%;overflow:hidden;background:var(--bg);color:var(--text);font-family:var(--sans)}
+
+/* Grid dot texture */
+body::before{
+  content:'';position:fixed;inset:0;pointer-events:none;z-index:0;
+  background-image:radial-gradient(circle,rgba(255,255,255,0.035) 1px,transparent 1px);
+  background-size:28px 28px;
+}
+
+#app{position:relative;z-index:1;height:100vh;display:flex;flex-direction:column}
+
+/* ============================================================
+   HEADER
+   ============================================================ */
+header{
+  flex-shrink:0;height:56px;
+  background:var(--surf);
+  border-bottom:1px solid var(--border);
+  display:flex;align-items:center;padding:0 14px;gap:12px;
+}
+
+.logo{
+  font-family:var(--sans);font-weight:800;font-size:1.05rem;
+  letter-spacing:-0.02em;white-space:nowrap;
+  background:linear-gradient(135deg,var(--cyan),var(--purple));
+  -webkit-background-clip:text;-webkit-text-fill-color:transparent;
+}
+
+.url-wrap{
+  flex:1;display:flex;gap:8px;
+  background:var(--bg2);border:1px solid var(--border);border-radius:var(--radius);
+  padding:4px 4px 4px 10px;
+  transition:border-color .2s;
+}
+.url-wrap:focus-within{border-color:var(--cyan)}
+
+#url-input{
+  flex:1;background:transparent;border:none;outline:none;
+  color:var(--text);font-family:var(--mono);font-size:.78rem;
+}
+#url-input::placeholder{color:var(--muted)}
+
+.load-btn{
+  background:var(--cyan);color:#000;border:none;border-radius:6px;
+  padding:6px 16px;font-family:var(--sans);font-weight:700;font-size:.82rem;
+  cursor:pointer;transition:opacity .2s,transform .1s;white-space:nowrap;
+}
+.load-btn:hover{opacity:.85}
+.load-btn:active{transform:scale(.97)}
+
+.hdr-badges{display:flex;align-items:center;gap:10px;margin-left:auto}
+
+.badge{
+  display:flex;align-items:center;gap:6px;
+  padding:4px 10px;border-radius:20px;
+  background:var(--surf2);border:1px solid var(--border);
+  font-family:var(--mono);font-size:.68rem;color:var(--muted);
+  cursor:pointer;transition:all .2s;
+  white-space:nowrap;
+}
+.badge:hover{border-color:var(--border2);color:var(--text)}
+.badge.active{background:var(--green-dim);border-color:rgba(52,211,153,.35);color:var(--green)}
+.badge.active .bdot{background:var(--green);box-shadow:0 0 8px var(--green)}
+.badge.listening{background:var(--cyan-dim);border-color:rgba(0,212,255,.35);color:var(--cyan)}
+.badge.listening .bdot{background:var(--cyan);box-shadow:0 0 8px var(--cyan);animation:blink 1s ease-in-out infinite}
+
+.bdot{width:7px;height:7px;border-radius:50%;background:var(--muted);transition:all .3s}
+@keyframes blink{50%{opacity:.25}}
+
+/* ============================================================
+   MAIN LAYOUT
+   ============================================================ */
+.main{
+  flex:1;display:grid;
+  grid-template-columns:1fr 272px;
+  min-height:0;overflow:hidden;
+}
+
+/* ============================================================
+   LEFT PANEL
+   ============================================================ */
+.left-panel{display:flex;flex-direction:column;overflow:hidden;border-right:1px solid var(--border)}
+
+.video-wrap{
+  flex:1;position:relative;background:#000;min-height:0;
+}
+
+.placeholder{
+  position:absolute;inset:0;display:flex;flex-direction:column;
+  align-items:center;justify-content:center;gap:10px;
+  color:var(--muted);text-align:center;padding:24px;
+}
+.placeholder .emo{font-size:3.5rem;line-height:1;margin-bottom:4px}
+.placeholder h2{font-size:1.15rem;font-weight:700;color:var(--text)}
+.placeholder p{font-size:.84rem;line-height:1.6;max-width:340px;color:var(--muted)}
+.placeholder .hint{
+  margin-top:8px;display:inline-flex;align-items:center;gap:6px;
+  padding:6px 14px;border-radius:20px;background:var(--surf);border:1px solid var(--border);
+  font-family:var(--mono);font-size:.72rem;color:var(--muted);
+}
+
+#yt-player{position:absolute;inset:0;width:100%;height:100%}
+
+/* Note trail */
+.trail-wrap{
+  flex-shrink:0;height:100px;
+  background:linear-gradient(180deg,var(--bg) 0%,var(--bg2) 100%);
+  border-top:1px solid var(--border);position:relative;overflow:hidden;
+}
+#trail-canvas{position:absolute;inset:0;width:100%;height:100%}
+.trail-label{
+  position:absolute;top:6px;left:10px;
+  font-family:var(--mono);font-size:.62rem;color:var(--muted);
+  letter-spacing:.06em;text-transform:uppercase;pointer-events:none;
+}
+
+/* ============================================================
+   RIGHT PANEL
+   ============================================================ */
+.right-panel{
+  overflow-y:auto;padding:10px;
+  display:flex;flex-direction:column;gap:8px;
+  background:var(--bg2);
+  scrollbar-width:thin;scrollbar-color:var(--surf2) transparent;
+}
+
+.card{
+  background:var(--surf);border:1px solid var(--border);
+  border-radius:var(--radius);padding:12px;
+}
+
+.card-title{
+  font-family:var(--mono);font-size:.62rem;font-weight:700;
+  letter-spacing:.12em;text-transform:uppercase;color:var(--muted);
+  margin-bottom:10px;
+}
+
+/* Speed */
+.speed-row{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.speed-val{
+  font-family:var(--mono);font-size:.82rem;color:var(--cyan);
+  min-width:34px;text-align:right;
+}
+
+input[type=range]{
+  -webkit-appearance:none;flex:1;height:3px;
+  background:var(--surf2);border-radius:2px;outline:none;cursor:pointer;
+}
+input[type=range]::-webkit-slider-thumb{
+  -webkit-appearance:none;width:14px;height:14px;
+  background:var(--cyan);border-radius:50%;cursor:pointer;
+  box-shadow:0 0 8px var(--cyan);
+}
+
+/* Transport */
+.transport{display:grid;grid-template-columns:1fr 1.3fr 1fr;gap:6px}
+.tbtn{
+  background:var(--surf2);border:1px solid var(--border);border-radius:6px;
+  padding:7px 4px;color:var(--text);font-size:.82rem;
+  cursor:pointer;text-align:center;transition:all .15s;
+  font-family:var(--sans);font-weight:600;
+}
+.tbtn:hover{background:var(--surf);border-color:var(--cyan);color:var(--cyan)}
+.tbtn.play-btn{
+  background:var(--cyan);color:#000;border-color:var(--cyan);font-size:1.05rem;
+}
+.tbtn.play-btn:hover{opacity:.85}
+
+/* Loop */
+.loop-grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:6px;margin-bottom:8px}
+.loop-info{
+  font-family:var(--mono);font-size:.7rem;color:var(--muted);
+  display:flex;gap:8px;justify-content:center;
+}
+.loop-info span{color:var(--text)}
+
+/* Detected note */
+.note-display{text-align:center;padding:6px 0}
+.note-name{
+  font-family:var(--mono);font-size:3rem;font-weight:700;
+  color:var(--cyan);line-height:1;
+  text-shadow:0 0 30px rgba(0,212,255,.45);
+  transition:all .08s;
+}
+.note-name.dim{color:var(--muted);text-shadow:none}
+.note-info{font-family:var(--mono);font-size:.68rem;color:var(--muted);margin-top:4px}
+
+/* Ghost button */
+.ghost-btn{
+  display:block;width:100%;
+  background:transparent;border:1px solid var(--border);border-radius:6px;
+  padding:7px 10px;color:var(--muted);
+  font-family:var(--sans);font-weight:600;font-size:.8rem;
+  cursor:pointer;text-align:center;transition:all .2s;
+}
+.ghost-btn:hover{border-color:var(--cyan);color:var(--cyan)}
+.ghost-btn.on{background:var(--green-dim);border-color:rgba(52,211,153,.4);color:var(--green)}
+
+/* Capture button */
+.capture-btn{
+  display:block;width:100%;
+  background:var(--cyan-dim);border:1px solid rgba(0,212,255,.35);border-radius:6px;
+  padding:8px 10px;color:var(--cyan);
+  font-family:var(--sans);font-weight:700;font-size:.82rem;
+  cursor:pointer;text-align:center;transition:all .2s;
+}
+.capture-btn:hover{background:rgba(0,212,255,.25)}
+.capture-btn.stop{background:var(--red-dim);border-color:rgba(248,113,113,.35);color:var(--red)}
+
+/* MIDI chips */
+.midi-chips{display:flex;flex-wrap:wrap;gap:4px;min-height:20px;margin-top:8px}
+.chip{
+  background:var(--green-dim);border:1px solid rgba(52,211,153,.3);color:var(--green);
+  border-radius:4px;padding:2px 8px;font-family:var(--mono);font-size:.7rem;font-weight:700;
+}
+
+/* Toggle */
+.toggle-row{display:flex;align-items:center;justify-content:space-between;margin-bottom:6px;font-size:.84rem}
+
+.toggle{position:relative;width:36px;height:20px;cursor:pointer;flex-shrink:0}
+.toggle input{display:none}
+.ttrack{
+  position:absolute;inset:0;background:var(--surf2);border-radius:20px;
+  border:1px solid var(--border);transition:.25s;
+}
+.ttrack::before{
+  content:'';position:absolute;width:14px;height:14px;
+  left:2px;top:2px;background:var(--muted);border-radius:50%;transition:.25s;
+}
+.toggle input:checked~.ttrack{background:var(--cyan);border-color:var(--cyan)}
+.toggle input:checked~.ttrack::before{transform:translateX(16px);background:#000}
+
+/* Score */
+.score-grid{display:grid;grid-template-columns:1fr 1fr;gap:6px;margin-top:6px}
+.score-box{background:var(--surf2);border-radius:6px;padding:8px 4px;text-align:center}
+.score-num{font-family:var(--mono);font-size:1.6rem;font-weight:700}
+.score-box:first-child .score-num{color:var(--green)}
+.score-box:last-child .score-num{color:var(--red)}
+.score-lbl{font-family:var(--mono);font-size:.6rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em}
+
+/* ============================================================
+   PIANO
+   ============================================================ */
+.piano-section{
+  flex-shrink:0;
+  background:linear-gradient(180deg,var(--surf) 0%,var(--bg2) 100%);
+  border-top:1px solid var(--border);
+  padding:10px 0 8px;
+}
+.piano-scroll{
+  overflow-x:auto;padding:0 12px 4px;
+  scrollbar-width:thin;scrollbar-color:var(--surf2) transparent;
+}
+.piano-scroll::-webkit-scrollbar{height:3px}
+.piano-scroll::-webkit-scrollbar-thumb{background:var(--surf2);border-radius:2px}
+
+#piano-wrap{position:relative;display:inline-block;height:var(--wkey-h)}
+
+.wkey{
+  position:absolute;bottom:0;
+  width:var(--wkey-w);height:var(--wkey-h);
+  background:linear-gradient(180deg,#e8eaf6 0%,#ffffff 60%);
+  border:1px solid #b0b4cc;border-top:none;
+  border-radius:0 0 5px 5px;
+  cursor:pointer;transition:background .07s;z-index:1;
+}
+.wkey:hover{background:linear-gradient(180deg,#d0d4f0 0%,#f0f0ff 60%)}
+
+.bkey{
+  position:absolute;top:0;
+  width:var(--bkey-w);height:var(--bkey-h);
+  background:linear-gradient(180deg,#1e1e30 0%,#0a0a18 100%);
+  border-radius:0 0 4px 4px;
+  cursor:pointer;z-index:3;transition:background .07s;
+}
+.bkey:hover{background:linear-gradient(180deg,#2a2a44 0%,#14141e 100%)}
+
+.c-label{
+  position:absolute;bottom:5px;left:50%;transform:translateX(-50%);
+  font-family:var(--mono);font-size:8px;color:#9098b0;pointer-events:none;
+}
+
+/* Active key states */
+.key.midi-lit.wkey{
+  background:linear-gradient(180deg,#86efac,#10b981) !important;
+  box-shadow:0 0 18px rgba(16,185,129,.7);border-color:#10b981;
+}
+.key.midi-lit.bkey{
+  background:linear-gradient(180deg,#34d399,#059669) !important;
+  box-shadow:0 0 18px rgba(16,185,129,.8);
+}
+.key.det-lit.wkey{
+  background:linear-gradient(180deg,#c4b5fd,#8b5cf6) !important;
+  box-shadow:0 0 18px rgba(139,92,246,.6);border-color:#8b5cf6;
+}
+.key.det-lit.bkey{
+  background:linear-gradient(180deg,#a78bfa,#7c3aed) !important;
+  box-shadow:0 0 18px rgba(139,92,246,.7);
+}
+.key.both-lit.wkey{
+  background:linear-gradient(180deg,#67e8f9,#06b6d4) !important;
+  box-shadow:0 0 26px rgba(0,212,255,.8);border-color:var(--cyan);
+}
+.key.both-lit.bkey{
+  background:linear-gradient(180deg,#22d3ee,#0891b2) !important;
+  box-shadow:0 0 26px rgba(0,212,255,.9);
+}
+.key.wrong-flash.wkey{
+  background:linear-gradient(180deg,#fca5a5,#ef4444) !important;
+  box-shadow:0 0 16px rgba(239,68,68,.6);
+}
+.key.wrong-flash.bkey{
+  background:linear-gradient(180deg,#f87171,#dc2626) !important;
+  box-shadow:0 0 16px rgba(239,68,68,.7);
+}
+
+/* ============================================================
+   FEEDBACK TOAST
+   ============================================================ */
+#toast{
+  position:fixed;top:42%;left:50%;
+  transform:translate(-50%,-50%) scale(0);
+  padding:14px 36px;border-radius:14px;
+  font-family:var(--mono);font-size:2rem;font-weight:700;
+  pointer-events:none;z-index:999;opacity:0;
+  transition:all .18s cubic-bezier(.175,.885,.32,1.275);
+}
+#toast.show{transform:translate(-50%,-50%) scale(1);opacity:1}
+#toast.ok{background:var(--green);color:#000;box-shadow:0 0 50px rgba(52,211,153,.6)}
+#toast.bad{background:var(--red);color:#fff;box-shadow:0 0 50px rgba(248,113,113,.6)}
+
+/* ============================================================
+   CAPTURE MODAL
+   ============================================================ */
+#capture-modal{
+  position:fixed;inset:0;z-index:500;
+  display:none;align-items:center;justify-content:center;
+  background:rgba(0,0,0,.7);backdrop-filter:blur(8px);
+}
+#capture-modal.open{display:flex}
+.modal-box{
+  background:var(--surf);border:1px solid var(--border2);border-radius:14px;
+  padding:28px 32px;max-width:420px;width:90%;
+}
+.modal-box h3{font-size:1.1rem;font-weight:700;margin-bottom:14px;color:var(--cyan)}
+.modal-box ol{padding-left:20px;color:var(--muted);font-size:.88rem;line-height:2}
+.modal-box ol strong{color:var(--text)}
+.modal-actions{display:flex;gap:10px;margin-top:20px}
+.modal-actions .load-btn{flex:1}
+.modal-cancel{
+  flex:1;background:transparent;border:1px solid var(--border);border-radius:6px;
+  color:var(--muted);font-family:var(--sans);font-weight:600;font-size:.84rem;
+  cursor:pointer;transition:all .2s;
+}
+.modal-cancel:hover{border-color:var(--border2);color:var(--text)}
+
+/* ============================================================
+   SCROLLBAR GLOBALS
+   ============================================================ */
+.right-panel::-webkit-scrollbar{width:3px}
+.right-panel::-webkit-scrollbar-thumb{background:var(--surf2);border-radius:2px}
+</style>
+</head>
+<body>
+<div id="app">
+
+<!-- ============================================================
+     HEADER
+     ============================================================ -->
+<header>
+  <div class="logo">🎹 PianoTutor</div>
+
+  <div class="url-wrap">
+    <input type="text" id="url-input" placeholder="Paste any YouTube piano tutorial URL…">
+    <button class="load-btn" onclick="loadVideo()">▶ Load</button>
+  </div>
+
+  <div class="hdr-badges">
+    <div class="badge" id="audio-badge" onclick="toggleCapture()">
+      <div class="bdot" id="audio-dot"></div>
+      <span id="audio-label">Audio</span>
+    </div>
+    <div class="badge" id="midi-badge" onclick="initMidi()">
+      <div class="bdot" id="midi-dot"></div>
+      <span id="midi-label">MIDI Piano</span>
+    </div>
+  </div>
+</header>
+
+<!-- ============================================================
+     MAIN
+     ============================================================ -->
+<div class="main">
+
+  <!-- LEFT -->
+  <div class="left-panel">
+    <div class="video-wrap">
+      <div class="placeholder" id="placeholder">
+        <div class="emo">🎵</div>
+        <h2>Load a Piano Tutorial</h2>
+        <p>Paste any YouTube piano tutorial URL above and click Load.<br>
+           Then click <strong>Audio</strong> in the header to capture the tab's audio — notes will light up on your piano in real time.</p>
+        <div class="hint">💡 Connect your MIDI piano for interactive practice</div>
+      </div>
+      <div id="yt-player"></div>
+    </div>
+
+    <div class="trail-wrap">
+      <canvas id="trail-canvas"></canvas>
+      <div class="trail-label">note trail</div>
+    </div>
+  </div>
+
+  <!-- RIGHT -->
+  <div class="right-panel">
+
+    <!-- PLAYBACK -->
+    <div class="card">
+      <div class="card-title">⏱ Playback</div>
+      <div class="speed-row">
+        <input type="range" id="speed-slider" min="0.25" max="2" step="0.25" value="1"
+               oninput="setSpeed(+this.value)">
+        <span class="speed-val" id="speed-val">1×</span>
+      </div>
+      <div class="transport">
+        <button class="tbtn" onclick="seekRel(-5)">⏮ −5s</button>
+        <button class="tbtn play-btn" id="play-btn" onclick="togglePlay()">▶</button>
+        <button class="tbtn" onclick="seekRel(5)">+5s ⏭</button>
+      </div>
+    </div>
+
+    <!-- LOOP -->
+    <div class="card">
+      <div class="card-title">🔁 Loop Section</div>
+      <div class="loop-grid">
+        <button class="tbtn" onclick="setLoopA()">Set A</button>
+        <button class="tbtn" onclick="setLoopB()">Set B</button>
+        <button class="tbtn" onclick="clearLoop()">✕ Clear</button>
+      </div>
+      <div class="loop-info">
+        A: <span id="loop-a-lbl">—</span> &nbsp;→&nbsp; B: <span id="loop-b-lbl">—</span>
+      </div>
+    </div>
+
+    <!-- AUDIO -->
+    <div class="card">
+      <div class="card-title">🎧 Audio Detection</div>
+      <button class="capture-btn" id="capture-btn" onclick="toggleCapture()">
+        Capture Tab Audio
+      </button>
+      <div class="note-display">
+        <div class="note-name dim" id="det-name">—</div>
+        <div class="note-info" id="det-info">No audio captured</div>
+      </div>
+    </div>
+
+    <!-- MIDI -->
+    <div class="card">
+      <div class="card-title">🎹 MIDI Input</div>
+      <button class="ghost-btn" id="midi-btn" onclick="initMidi()">Connect Piano</button>
+      <div class="midi-chips" id="midi-chips"></div>
+    </div>
+
+    <!-- PRACTICE -->
+    <div class="card">
+      <div class="card-title">🎮 Practice Mode</div>
+      <div class="toggle-row">
+        <span>Pause on new note</span>
+        <label class="toggle">
+          <input type="checkbox" id="practice-chk" onchange="togglePractice()">
+          <div class="ttrack"></div>
+        </label>
+      </div>
+      <div class="toggle-row">
+        <span>Highlight target key</span>
+        <label class="toggle">
+          <input type="checkbox" id="hint-chk" checked>
+          <div class="ttrack"></div>
+        </label>
+      </div>
+      <div class="score-grid">
+        <div class="score-box">
+          <div class="score-num" id="sc-correct">0</div>
+          <div class="score-lbl">Correct</div>
+        </div>
+        <div class="score-box">
+          <div class="score-num" id="sc-miss">0</div>
+          <div class="score-lbl">Missed</div>
+        </div>
+      </div>
+      <button class="ghost-btn" onclick="resetScore()" style="margin-top:8px;font-size:.75rem">
+        ↺ Reset Score
+      </button>
+    </div>
+
+    <!-- LEGEND -->
+    <div class="card" style="font-size:.75rem;">
+      <div class="card-title">Legend</div>
+      <div style="display:flex;flex-direction:column;gap:6px;color:var(--muted)">
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:12px;height:12px;background:var(--purple);border-radius:3px;flex-shrink:0;box-shadow:0 0 8px var(--purple);display:inline-block"></span>
+          Detected from audio
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:12px;height:12px;background:var(--green);border-radius:3px;flex-shrink:0;box-shadow:0 0 8px var(--green);display:inline-block"></span>
+          Your MIDI piano
+        </div>
+        <div style="display:flex;align-items:center;gap:8px">
+          <span style="width:12px;height:12px;background:var(--cyan);border-radius:3px;flex-shrink:0;box-shadow:0 0 8px var(--cyan);display:inline-block"></span>
+          Both match!
+        </div>
+      </div>
+    </div>
+
+  </div>
+</div>
+
+<!-- PIANO -->
+<div class="piano-section">
+  <div class="piano-scroll">
+    <div id="piano-wrap"></div>
+  </div>
+</div>
+
+</div><!-- #app -->
+
+<!-- TOAST -->
+<div id="toast"></div>
+
+<!-- CAPTURE INSTRUCTION MODAL -->
+<div id="capture-modal">
+  <div class="modal-box">
+    <h3>🎧 Capture Tab Audio</h3>
+    <ol>
+      <li>Click <strong>Share</strong> in the browser dialog</li>
+      <li>Select the <strong>Tab</strong> option (not Window or Screen)</li>
+      <li>Check <strong>"Share tab audio"</strong> ✓</li>
+      <li>Click <strong>Share</strong> to confirm</li>
+    </ol>
+    <p style="margin-top:12px;font-size:.8rem;color:var(--muted)">
+      ⚠️ Works best in Chrome / Edge. The app will detect piano notes from the YouTube audio and highlight them on your keyboard.
+    </p>
+    <div class="modal-actions">
+      <button class="load-btn" onclick="startCapture()">Got it — Start Capture</button>
+      <button class="modal-cancel" onclick="closeModal()">Cancel</button>
+    </div>
+  </div>
+</div>
+
+<!-- YouTube IFrame API -->
+<script src="https://www.youtube.com/iframe_api"></script>
+
+<script>
+/* ============================================================
+   CONSTANTS
+   ============================================================ */
+const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
+const BLACK_PCS  = new Set([1,3,6,8,10]);
+const WW = 28, WH = 118, BW = 17, BH = 70; // key dimensions
+const PIANO_LO = 36; // C2
+const PIANO_HI = 96; // C7
+
+/* ============================================================
+   STATE
+   ============================================================ */
+let ytPlayer = null, playerReady = false, isPlaying = false;
+let loopA = null, loopB = null, loopTimer = null;
+
+let audioCtx = null, analyser = null, captureStream = null;
+let pitchTimer = null, isCapturing = false;
+
+let midiAccess = null, midiConnected = false;
+let activeMidi = new Set(); // currently held MIDI notes
+
+let detectedMidi = null, detectedFreq = null;
+let prevDetectedMidi = null;
+
+let practiceMode = false, practicePaused = false;
+let scoreCorrect = 0, scoreMiss = 0;
+
+let keyEls = {}; // midi -> DOM element
+let whiteXPos = {}; // midi -> center x pixel of that key
+
+let noteTrail = []; // {midi, t, src:'yt'|'midi'}
+
+/* ============================================================
+   UTILITIES
+   ============================================================ */
+function midiName(m){ return NOTE_NAMES[m%12] + (Math.floor(m/12)-1) }
+function freqToMidi(f){ return f>0 ? Math.round(12*Math.log2(f/440)+69) : null }
+function formatTime(s){
+  if(s==null) return '—';
+  const m=Math.floor(s/60), sec=Math.floor(s%60);
+  return `${m}:${sec.toString().padStart(2,'0')}`;
+}
+
+/* ============================================================
+   BUILD PIANO
+   ============================================================ */
+function buildPiano(){
+  const wrap = document.getElementById('piano-wrap');
+  wrap.innerHTML = '';
+  keyEls = {}; whiteXPos = {};
+
+  let wi = 0; // white key counter
+  const allKeys = [];
+
+  for(let m = PIANO_LO; m <= PIANO_HI; m++){
+    const pc = m % 12;
+    const isBlack = BLACK_PCS.has(pc);
+    allKeys.push({ m, pc, isBlack, wi: isBlack ? wi : wi++ });
+    if(!isBlack && pc!==undefined) allKeys[allKeys.length-1].wi = wi-1;
+  }
+
+  // Reset wi
+  wi = 0;
+  const keyData = [];
+  for(let m = PIANO_LO; m <= PIANO_HI; m++){
+    const pc = m%12;
+    const isBlack = BLACK_PCS.has(pc);
+    keyData.push({ m, pc, isBlack, wi: isBlack ? wi-1 : (wi++) });
+    if(!isBlack) keyData[keyData.length-1].wi = wi-1;
+  }
+
+  // Set wrap width
+  wrap.style.width = (wi*WW) + 'px';
+  wrap.style.height = WH + 'px';
+  wrap.style.position = 'relative';
+
+  // Create white keys first (behind blacks)
+  for(const k of keyData){
+    if(k.isBlack) continue;
+    const el = document.createElement('div');
+    el.className = 'key wkey';
+    el.style.left = (k.wi * WW) + 'px';
+    el.dataset.midi = k.m;
+    if(k.pc === 0){
+      const lbl = document.createElement('span');
+      lbl.className = 'c-label';
+      lbl.textContent = midiName(k.m);
+      el.appendChild(lbl);
+    }
+    el.addEventListener('pointerdown', e => { e.preventDefault(); clickNoteOn(k.m); el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointerup',   () => clickNoteOff(k.m));
+    el.addEventListener('pointercancel',()=> clickNoteOff(k.m));
+    wrap.appendChild(el);
+    keyEls[k.m] = el;
+    whiteXPos[k.m] = k.wi * WW + WW/2;
+  }
+
+  // Create black keys (on top)
+  for(const k of keyData){
+    if(!k.isBlack) continue;
+    const el = document.createElement('div');
+    el.className = 'key bkey';
+    const left = k.wi * WW + WW - BW/2;
+    el.style.left = left + 'px';
+    el.dataset.midi = k.m;
+    el.addEventListener('pointerdown', e => { e.preventDefault(); clickNoteOn(k.m); el.setPointerCapture(e.pointerId); });
+    el.addEventListener('pointerup',   () => clickNoteOff(k.m));
+    el.addEventListener('pointercancel',()=> clickNoteOff(k.m));
+    wrap.appendChild(el);
+    keyEls[k.m] = el;
+    whiteXPos[k.m] = left + BW/2;
+  }
+}
+
+function clickNoteOn(m){
+  activeMidi.add(m);
+  refreshKey(m);
+  noteTrail.push({ midi:m, t:performance.now(), src:'midi' });
+  updateChips();
+}
+function clickNoteOff(m){
+  activeMidi.delete(m);
+  refreshKey(m);
+  updateChips();
+}
+
+function refreshKey(m){
+  const el = keyEls[m];
+  if(!el) return;
+  const isMidi = activeMidi.has(m);
+  const isDet  = detectedMidi === m;
+  el.classList.remove('midi-lit','det-lit','both-lit','wrong-flash');
+  if(isMidi && isDet)  el.classList.add('both-lit');
+  else if(isMidi)      el.classList.add('midi-lit');
+  else if(isDet)       el.classList.add('det-lit');
+}
+
+function flashWrong(m){
+  const el = keyEls[m];
+  if(!el) return;
+  el.classList.remove('midi-lit','det-lit','both-lit');
+  el.classList.add('wrong-flash');
+  setTimeout(()=>{ el.classList.remove('wrong-flash'); refreshKey(m); }, 450);
+}
+
+/* ============================================================
+   NOTE TRAIL CANVAS
+   ============================================================ */
+const canvas = document.getElementById('trail-canvas');
+const ctx2d  = canvas.getContext('2d');
+
+function syncCanvasSize(){
+  canvas.width  = canvas.offsetWidth;
+  canvas.height = canvas.offsetHeight;
+}
+
+function drawTrail(){
+  syncCanvasSize();
+  ctx2d.clearRect(0,0,canvas.width,canvas.height);
+
+  const now = performance.now();
+  const maxAge = 3500;
+  noteTrail = noteTrail.filter(n => now-n.t < maxAge);
+
+  const scrollEl = document.querySelector('.piano-scroll');
+  const scrollLeft = scrollEl ? scrollEl.scrollLeft : 0;
+
+  for(const n of noteTrail){
+    const age = now - n.t;
+    const frac = age / maxAge; // 0=new 1=old
+
+    const baseX = whiteXPos[n.midi];
+    if(baseX == null) continue;
+    const x = baseX - scrollLeft + 12; // 12px left padding in piano-scroll
+    const y = canvas.height * frac;
+    const isBlack = BLACK_PCS.has(n.midi%12);
+    const w = isBlack ? BW : WW-2;
+    const h = Math.max(6, 10*(1-frac));
+    const alpha = (1-frac) * 0.9;
+
+    if(n.src==='yt'){
+      ctx2d.fillStyle = `rgba(167,139,250,${alpha})`;
+      ctx2d.shadowColor = 'rgba(167,139,250,.9)';
+    } else {
+      ctx2d.fillStyle = `rgba(52,211,153,${alpha})`;
+      ctx2d.shadowColor = 'rgba(52,211,153,.9)';
+    }
+    ctx2d.shadowBlur = 8;
+    ctx2d.beginPath();
+    ctx2d.roundRect(x-w/2, y, w, h, 3);
+    ctx2d.fill();
+    ctx2d.shadowBlur = 0;
+  }
+
+  requestAnimationFrame(drawTrail);
+}
+
+/* ============================================================
+   YOUTUBE
+   ============================================================ */
+function extractVideoId(url){
+  const pats = [
+    /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?#]+)/,
+    /youtube\.com\/shorts\/([^&\s?#]+)/
+  ];
+  for(const p of pats){ const m=url.match(p); if(m) return m[1]; }
+  return null;
+}
+
+function onYouTubeIframeAPIReady(){ /* API ready */ }
+
+function loadVideo(){
+  const url = document.getElementById('url-input').value.trim();
+  const vid = extractVideoId(url);
+  if(!vid){ showToast('⚠ Invalid URL','bad'); return; }
+  document.getElementById('placeholder').style.display='none';
+
+  if(ytPlayer){
+    ytPlayer.loadVideoById(vid);
+    return;
+  }
+
+  ytPlayer = new YT.Player('yt-player',{
+    videoId: vid,
+    playerVars:{ autoplay:1, playsinline:1, rel:0, modestbranding:1 },
+    events:{
+      onReady: e => {
+        playerReady = true;
+        e.target.setPlaybackRate(+document.getElementById('speed-slider').value);
+        startLoopWatcher();
+      },
+      onStateChange: e => {
+        isPlaying = e.data === YT.PlayerState.PLAYING;
+        document.getElementById('play-btn').textContent = isPlaying ? '⏸' : '▶';
+      }
+    }
+  });
+}
+
+function togglePlay(){
+  if(!ytPlayer) return;
+  isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
+}
+
+function seekRel(s){
+  if(!ytPlayer) return;
+  ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime()+s), true);
+}
+
+function setSpeed(v){
+  document.getElementById('speed-val').textContent = v + '×';
+  if(ytPlayer && playerReady) ytPlayer.setPlaybackRate(v);
+}
+
+function setLoopA(){
+  if(!ytPlayer) return;
+  loopA = ytPlayer.getCurrentTime();
+  document.getElementById('loop-a-lbl').textContent = formatTime(loopA);
+}
+function setLoopB(){
+  if(!ytPlayer) return;
+  loopB = ytPlayer.getCurrentTime();
+  document.getElementById('loop-b-lbl').textContent = formatTime(loopB);
+}
+function clearLoop(){
+  loopA=null; loopB=null;
+  document.getElementById('loop-a-lbl').textContent='—';
+  document.getElementById('loop-b-lbl').textContent='—';
+}
+function startLoopWatcher(){
+  if(loopTimer) clearInterval(loopTimer);
+  loopTimer = setInterval(()=>{
+    if(!ytPlayer||loopA==null||loopB==null) return;
+    if(ytPlayer.getCurrentTime() >= loopB) ytPlayer.seekTo(loopA,true);
+  }, 200);
+}
+
+/* ============================================================
+   CAPTURE MODAL
+   ============================================================ */
+function toggleCapture(){
+  if(isCapturing){ stopCapture(); return; }
+  document.getElementById('capture-modal').classList.add('open');
+}
+function closeModal(){
+  document.getElementById('capture-modal').classList.remove('open');
+}
+
+async function startCapture(){
+  closeModal();
+  try {
+    const constraints = {
+      video: true,          // required by some browsers; we stop it immediately
+      audio: {
+        echoCancellation:false,
+        noiseSuppression:false,
+        autoGainControl:false,
+        sampleRate:44100,
+        channelCount:1
+      },
+      preferCurrentTab: true  // Chrome hint
+    };
+    captureStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+
+    // Stop video track immediately – we only want audio
+    captureStream.getVideoTracks().forEach(t=>t.stop());
+
+    const audioTracks = captureStream.getAudioTracks();
+    if(!audioTracks.length){
+      alert('No audio track found.\nMake sure to check "Share tab audio" in the browser dialog and select the correct tab.');
+      captureStream.getTracks().forEach(t=>t.stop());
+      return;
+    }
+
+    audioCtx  = new (window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
+    const src  = audioCtx.createMediaStreamSource(captureStream);
+    analyser   = audioCtx.createAnalyser();
+    analyser.fftSize = 8192;
+    analyser.smoothingTimeConstant = 0.1;
+    src.connect(analyser);
+
+    isCapturing = true;
+    document.getElementById('capture-btn').textContent = '⏹ Stop Capture';
+    document.getElementById('capture-btn').classList.add('stop');
+    const ab = document.getElementById('audio-badge');
+    ab.classList.add('listening');
+    document.getElementById('audio-label').textContent = 'Listening…';
+
+    captureStream.getTracks().forEach(t=>t.addEventListener('ended', stopCapture));
+    pitchTimer = setInterval(runPitchDetection, 60);
+
+  } catch(err){
+    if(err.name !== 'NotAllowedError'){
+      alert('Capture failed: '+err.message+'\n\nNote: This feature requires Chrome or Edge.');
+    }
+  }
+}
+
+function stopCapture(){
+  isCapturing = false;
+  if(pitchTimer) clearInterval(pitchTimer);
+  if(captureStream) captureStream.getTracks().forEach(t=>t.stop());
+  if(audioCtx) audioCtx.close().catch(()=>{});
+  captureStream=null; audioCtx=null; analyser=null;
+
+  const prev = detectedMidi;
+  detectedMidi=null; detectedFreq=null;
+  if(prev!=null) refreshKey(prev);
+  updateDetDisplay(null,null);
+
+  document.getElementById('capture-btn').textContent='Capture Tab Audio';
+  document.getElementById('capture-btn').classList.remove('stop');
+  const ab=document.getElementById('audio-badge');
+  ab.classList.remove('listening');
+  document.getElementById('audio-label').textContent='Audio';
+}
+
+/* ============================================================
+   PITCH DETECTION — Normalized Autocorrelation (ACF2+)
+   ============================================================ */
+function runPitchDetection(){
+  if(!analyser) return;
+  const buf = new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
+
+  // RMS gate
+  let rms=0;
+  for(let i=0;i<buf.length;i++) rms+=buf[i]*buf[i];
+  rms=Math.sqrt(rms/buf.length);
+
+  if(rms < 0.007){
+    if(detectedMidi!==null){
+      const prev=detectedMidi;
+      detectedMidi=null; detectedFreq=null;
+      refreshKey(prev);
+      updateDetDisplay(null,null);
+    }
+    return;
+  }
+
+  const freq = acf2plus(buf, audioCtx.sampleRate);
+  if(freq<=0 || freq<27 || freq>4200) return;
+
+  const midi = freqToMidi(freq);
+  if(midi<21||midi>108) return;
+
+  const prevMidi = detectedMidi;
+  detectedMidi = midi;
+  detectedFreq = freq;
+
+  if(prevMidi!==null && prevMidi!==midi) refreshKey(prevMidi);
+  refreshKey(midi);
+  updateDetDisplay(midi, freq);
+  noteTrail.push({ midi, t:performance.now(), src:'yt' });
+
+  // Practice mode — new note detected
+  if(practiceMode && !practicePaused && midi!==prevMidi){
+    onNewPracticeNote(midi);
+  }
+}
+
+function acf2plus(buf, sr){
+  const n = buf.length;
+  const half = Math.floor(n/2);
+
+  // Find first zero-crossing (start of first period)
+  let r1=0, r2=n-1;
+  for(let i=0;i<half;i++){ if(buf[i]<0){r1=i;break;} }
+  for(let i=n-1;i>0;i--){ if(buf[i]>0){r2=i;break;} }
+
+  const trimmed = buf.slice(r1, r2+1);
+  const tLen = trimmed.length;
+  if(tLen < 2) return -1;
+
+  // Build autocorrelation
+  const corr = new Float32Array(tLen);
+  for(let lag=0;lag<tLen;lag++){
+    let s=0;
+    for(let i=0;i<tLen-lag;i++) s+=trimmed[i]*trimmed[i+lag];
+    corr[lag]=s;
+  }
+
+  // Find first dip
+  let d=1;
+  while(d<tLen-1 && corr[d]>corr[d-1]) d++;
+
+  // Find highest peak after dip
+  let maxVal=-Infinity, maxLag=d;
+  for(let i=d;i<tLen;i++){
+    if(corr[i]>maxVal){ maxVal=corr[i]; maxLag=i; }
+  }
+
+  // Must be a real peak (>50% of zero-lag)
+  if(corr[0]===0 || maxVal/corr[0]<0.5) return -1;
+
+  // Parabolic interpolation
+  const a = maxLag>0      ? corr[maxLag-1] : 0;
+  const b = corr[maxLag];
+  const c = maxLag<tLen-1 ? corr[maxLag+1] : 0;
+  const denom = 2*(2*b-a-c);
+  const shift = denom!==0 ? (a-c)/denom : 0;
+  const exactLag = maxLag + shift;
+
+  return sr/exactLag;
+}
+
+function updateDetDisplay(midi, freq){
+  const nameEl = document.getElementById('det-name');
+  const infoEl = document.getElementById('det-info');
+  if(midi==null){
+    nameEl.textContent='—'; nameEl.classList.add('dim');
+    infoEl.textContent = isCapturing ? 'Listening for notes…' : 'No audio captured';
+  } else {
+    nameEl.textContent = midiName(midi); nameEl.classList.remove('dim');
+    infoEl.textContent = freq.toFixed(1)+' Hz — MIDI '+midi;
+  }
+}
+
+/* ============================================================
+   MIDI
+   ============================================================ */
+async function initMidi(){
+  if(!navigator.requestMIDIAccess){ alert('WebMIDI not supported in this browser.\nUse Chrome or Edge.'); return; }
+  try {
+    midiAccess = await navigator.requestMIDIAccess();
+    hookMidiInputs();
+    midiAccess.onstatechange = hookMidiInputs;
+
+    midiConnected=true;
+    const btn=document.getElementById('midi-btn');
+    btn.textContent='✓ Piano Connected';
+    btn.classList.add('on');
+    const badge=document.getElementById('midi-badge');
+    badge.classList.add('active');
+    document.getElementById('midi-label').textContent='MIDI';
+  } catch(e){
+    alert('MIDI access denied.\n'+e.message);
+  }
+}
+
+function hookMidiInputs(){
+  if(!midiAccess) return;
+  for(const input of midiAccess.inputs.values()){
+    input.onmidimessage = onMidi;
+  }
+}
+
+function onMidi(e){
+  const [st, note, vel] = e.data;
+  const cmd = st & 0xf0;
+  if(cmd===0x90 && vel>0){
+    activeMidi.add(note);
+    refreshKey(note);
+    noteTrail.push({ midi:note, t:performance.now(), src:'midi' });
+    updateChips();
+    // Practice check
+    if(practiceMode && practicePaused && detectedMidi!=null){
+      if(note===detectedMidi) onPracticeCorrect(note);
+      else onPracticeWrong(note);
+    }
+  } else if(cmd===0x80||(cmd===0x90&&vel===0)){
+    activeMidi.delete(note);
+    refreshKey(note);
+    updateChips();
+  }
+}
+
+function updateChips(){
+  const el = document.getElementById('midi-chips');
+  el.innerHTML='';
+  for(const m of [...activeMidi].sort((a,b)=>a-b)){
+    const c=document.createElement('div');
+    c.className='chip'; c.textContent=midiName(m);
+    el.appendChild(c);
+  }
+}
+
+/* ============================================================
+   PRACTICE MODE
+   ============================================================ */
+function togglePractice(){
+  practiceMode = document.getElementById('practice-chk').checked;
+  practicePaused=false;
+  if(!practiceMode && ytPlayer) ytPlayer.playVideo();
+}
+
+function onNewPracticeNote(midi){
+  if(!ytPlayer||!practiceMode) return;
+  ytPlayer.pauseVideo();
+  practicePaused=true;
+  // Hint: the key is already lit with det-lit via refreshKey
+}
+
+function onPracticeCorrect(midi){
+  scoreCorrect++;
+  document.getElementById('sc-correct').textContent=scoreCorrect;
+  practicePaused=false;
+  showToast('✓','ok');
+  if(ytPlayer) ytPlayer.playVideo();
+}
+
+function onPracticeWrong(midi){
+  scoreMiss++;
+  document.getElementById('sc-miss').textContent=scoreMiss;
+  flashWrong(midi);
+  showToast('✗','bad');
+}
+
+function resetScore(){
+  scoreCorrect=0; scoreMiss=0;
+  document.getElementById('sc-correct').textContent='0';
+  document.getElementById('sc-miss').textContent='0';
+}
+
+/* ============================================================
+   TOAST
+   ============================================================ */
+let toastTO=null;
+function showToast(txt, cls){
+  const t=document.getElementById('toast');
+  t.textContent=txt; t.className='show '+cls;
+  clearTimeout(toastTO);
+  toastTO=setTimeout(()=>t.className='',700);
+}
+
+/* ============================================================
+   INIT
+   ============================================================ */
+window.addEventListener('DOMContentLoaded', ()=>{
+  buildPiano();
+  drawTrail();
+
+  // Pre-load the URL from the tutorial the user mentioned
+  document.getElementById('url-input').value='https://www.youtube.com/watch?v=axl1WM_C3uc';
+
+  // Enter to load
+  document.getElementById('url-input').addEventListener('keydown', e=>{ if(e.key==='Enter') loadVideo(); });
+
+  // Resize
+  window.addEventListener('resize', syncCanvasSize);
+
+  // Scroll piano to C3 area by default
+  setTimeout(()=>{
+    const s=document.querySelector('.piano-scroll');
+    if(s) s.scrollLeft = (12*WW); // 12 white keys in
+  },200);
+
+  // Auto-connect MIDI if available
+  if(navigator.requestMIDIAccess){
+    navigator.requestMIDIAccess().then(acc=>{
+      if(acc.inputs.size>0){
+        midiAccess=acc; hookMidiInputs(); midiConnected=true;
+        document.getElementById('midi-badge').classList.add('active');
+        document.getElementById('midi-label').textContent='MIDI';
+        document.getElementById('midi-btn').textContent='✓ Piano Connected';
+        document.getElementById('midi-btn').classList.add('on');
+        acc.onstatechange=hookMidiInputs;
+      }
+    }).catch(()=>{});
+  }
+});
+
+// Keyboard shortcuts
+document.addEventListener('keydown', e=>{
+  if(e.target.tagName==='INPUT') return;
+  if(e.key===' '){ e.preventDefault(); togglePlay(); }
+  if(e.key==='ArrowLeft')  seekRel(-5);
+  if(e.key==='ArrowRight') seekRel(5);
+  if(e.key==='a') setLoopA();
+  if(e.key==='b') setLoopB();
+});
+</script>
+</body>
+</html>
