@@ -294,7 +294,7 @@ input[type=range]::-webkit-slider-thumb{
 .piano-scroll::-webkit-scrollbar{height:3px}
 .piano-scroll::-webkit-scrollbar-thumb{background:var(--surf2);border-radius:2px}
 
-#piano-wrap{position:relative;display:inline-block;height:var(--wkey-h)}
+#piano-wrap{position:relative;display:inline-block}
 
 .wkey{
   position:absolute;bottom:0;
@@ -596,21 +596,23 @@ input[type=range]::-webkit-slider-thumb{
    ============================================================ */
 const NOTE_NAMES = ['C','C#','D','D#','E','F','F#','G','G#','A','A#','B'];
 const BLACK_PCS  = new Set([1,3,6,8,10]);
-const WW = 28, WH = 118, BW = 17, BH = 70; // key dimensions
+const WW = 28, WH = 118, BW = 17, BH = 70;
 const PIANO_LO = 36; // C2
 const PIANO_HI = 96; // C7
+const PIANO_SCROLL_PADDING = 12; // matches CSS padding-left on .piano-scroll
 
 /* ============================================================
    STATE
    ============================================================ */
 let ytPlayer = null, playerReady = false, isPlaying = false;
 let loopA = null, loopB = null, loopTimer = null;
+let ytAPIReady = false; // track when YouTube API fires its callback
 
 let audioCtx = null, analyser = null, captureStream = null;
 let pitchTimer = null, isCapturing = false;
 
 let midiAccess = null, midiConnected = false;
-let activeMidi = new Set(); // currently held MIDI notes
+let activeMidi = new Set();
 
 let detectedMidi = null, detectedFreq = null;
 let prevDetectedMidi = null;
@@ -618,97 +620,100 @@ let prevDetectedMidi = null;
 let practiceMode = false, practicePaused = false;
 let scoreCorrect = 0, scoreMiss = 0;
 
-let keyEls = {}; // midi -> DOM element
-let whiteXPos = {}; // midi -> center x pixel of that key
+let keyEls   = {};  // midi number → DOM element
+let keyXPos  = {};  // midi number → center x pixel (relative to piano-wrap)
 
-let noteTrail = []; // {midi, t, src:'yt'|'midi'}
+let noteTrail = [];
 
 /* ============================================================
    UTILITIES
    ============================================================ */
-function midiName(m){ return NOTE_NAMES[m%12] + (Math.floor(m/12)-1) }
-function freqToMidi(f){ return f>0 ? Math.round(12*Math.log2(f/440)+69) : null }
+function midiName(m){ return NOTE_NAMES[m % 12] + (Math.floor(m / 12) - 1); }
+function freqToMidi(f){ return f > 0 ? Math.round(12 * Math.log2(f / 440) + 69) : null; }
 function formatTime(s){
-  if(s==null) return '—';
-  const m=Math.floor(s/60), sec=Math.floor(s%60);
+  if(s == null) return '—';
+  const m = Math.floor(s / 60), sec = Math.floor(s % 60);
   return `${m}:${sec.toString().padStart(2,'0')}`;
 }
 
 /* ============================================================
-   BUILD PIANO
+   BUILD PIANO  (single clean pass)
    ============================================================ */
 function buildPiano(){
   const wrap = document.getElementById('piano-wrap');
   wrap.innerHTML = '';
-  keyEls = {}; whiteXPos = {};
+  keyEls  = {};
+  keyXPos = {};
 
-  let wi = 0; // white key counter
-  const allKeys = [];
+  // Single pass: count white keys and compute positions
+  let wi = 0; // running white-key counter
+  const keys = [];
 
   for(let m = PIANO_LO; m <= PIANO_HI; m++){
-    const pc = m % 12;
+    const pc      = m % 12;
     const isBlack = BLACK_PCS.has(pc);
-    allKeys.push({ m, pc, isBlack, wi: isBlack ? wi : wi++ });
-    if(!isBlack && pc!==undefined) allKeys[allKeys.length-1].wi = wi-1;
+
+    if(isBlack){
+      // Black key sits after the most-recent white key
+      // Center it at: (wi-1)*WW + WW  (= right edge of previous white key)
+      // then offset left by BW/2 so it straddles the boundary
+      keys.push({ m, pc, isBlack, x: (wi - 1) * WW + WW - BW / 2 });
+    } else {
+      keys.push({ m, pc, isBlack, wi, x: wi * WW });
+      wi++;
+    }
   }
 
-  // Reset wi
-  wi = 0;
-  const keyData = [];
-  for(let m = PIANO_LO; m <= PIANO_HI; m++){
-    const pc = m%12;
-    const isBlack = BLACK_PCS.has(pc);
-    keyData.push({ m, pc, isBlack, wi: isBlack ? wi-1 : (wi++) });
-    if(!isBlack) keyData[keyData.length-1].wi = wi-1;
-  }
-
-  // Set wrap width
-  wrap.style.width = (wi*WW) + 'px';
+  const totalWhites = wi;
+  wrap.style.width  = (totalWhites * WW) + 'px';
   wrap.style.height = WH + 'px';
-  wrap.style.position = 'relative';
 
-  // Create white keys first (behind blacks)
-  for(const k of keyData){
+  // Render white keys first (z-index below black)
+  for(const k of keys){
     if(k.isBlack) continue;
     const el = document.createElement('div');
-    el.className = 'key wkey';
-    el.style.left = (k.wi * WW) + 'px';
+    el.className   = 'key wkey';
+    el.style.left  = k.x + 'px';
     el.dataset.midi = k.m;
+
     if(k.pc === 0){
       const lbl = document.createElement('span');
-      lbl.className = 'c-label';
+      lbl.className   = 'c-label';
       lbl.textContent = midiName(k.m);
       el.appendChild(lbl);
     }
+
     el.addEventListener('pointerdown', e => { e.preventDefault(); clickNoteOn(k.m); el.setPointerCapture(e.pointerId); });
-    el.addEventListener('pointerup',   () => clickNoteOff(k.m));
-    el.addEventListener('pointercancel',()=> clickNoteOff(k.m));
+    el.addEventListener('pointerup',    () => clickNoteOff(k.m));
+    el.addEventListener('pointercancel',() => clickNoteOff(k.m));
     wrap.appendChild(el);
-    keyEls[k.m] = el;
-    whiteXPos[k.m] = k.wi * WW + WW/2;
+
+    keyEls[k.m]  = el;
+    keyXPos[k.m] = k.x + WW / 2;  // center of white key
   }
 
-  // Create black keys (on top)
-  for(const k of keyData){
+  // Render black keys on top
+  for(const k of keys){
     if(!k.isBlack) continue;
     const el = document.createElement('div');
-    el.className = 'key bkey';
-    const left = k.wi * WW + WW - BW/2;
-    el.style.left = left + 'px';
+    el.className   = 'key bkey';
+    el.style.left  = k.x + 'px';
     el.dataset.midi = k.m;
+
     el.addEventListener('pointerdown', e => { e.preventDefault(); clickNoteOn(k.m); el.setPointerCapture(e.pointerId); });
-    el.addEventListener('pointerup',   () => clickNoteOff(k.m));
-    el.addEventListener('pointercancel',()=> clickNoteOff(k.m));
+    el.addEventListener('pointerup',    () => clickNoteOff(k.m));
+    el.addEventListener('pointercancel',() => clickNoteOff(k.m));
     wrap.appendChild(el);
-    keyEls[k.m] = el;
-    whiteXPos[k.m] = left + BW/2;
+
+    keyEls[k.m]  = el;
+    keyXPos[k.m] = k.x + BW / 2;  // center of black key
   }
 }
 
 function clickNoteOn(m){
   activeMidi.add(m);
   refreshKey(m);
-  noteTrail.push({ midi:m, t:performance.now(), src:'midi' });
+  noteTrail.push({ midi: m, t: performance.now(), src: 'midi' });
   updateChips();
 }
 function clickNoteOff(m){
@@ -733,7 +738,7 @@ function flashWrong(m){
   if(!el) return;
   el.classList.remove('midi-lit','det-lit','both-lit');
   el.classList.add('wrong-flash');
-  setTimeout(()=>{ el.classList.remove('wrong-flash'); refreshKey(m); }, 450);
+  setTimeout(() => { el.classList.remove('wrong-flash'); refreshKey(m); }, 450);
 }
 
 /* ============================================================
@@ -749,38 +754,41 @@ function syncCanvasSize(){
 
 function drawTrail(){
   syncCanvasSize();
-  ctx2d.clearRect(0,0,canvas.width,canvas.height);
+  ctx2d.clearRect(0, 0, canvas.width, canvas.height);
 
-  const now = performance.now();
+  const now    = performance.now();
   const maxAge = 3500;
-  noteTrail = noteTrail.filter(n => now-n.t < maxAge);
+  noteTrail    = noteTrail.filter(n => now - n.t < maxAge);
 
-  const scrollEl = document.querySelector('.piano-scroll');
+  const scrollEl   = document.querySelector('.piano-scroll');
   const scrollLeft = scrollEl ? scrollEl.scrollLeft : 0;
 
   for(const n of noteTrail){
-    const age = now - n.t;
-    const frac = age / maxAge; // 0=new 1=old
+    const age  = now - n.t;
+    const frac = age / maxAge;
 
-    const baseX = whiteXPos[n.midi];
+    const baseX = keyXPos[n.midi];
     if(baseX == null) continue;
-    const x = baseX - scrollLeft + 12; // 12px left padding in piano-scroll
-    const y = canvas.height * frac;
-    const isBlack = BLACK_PCS.has(n.midi%12);
-    const w = isBlack ? BW : WW-2;
-    const h = Math.max(6, 10*(1-frac));
-    const alpha = (1-frac) * 0.9;
 
-    if(n.src==='yt'){
-      ctx2d.fillStyle = `rgba(167,139,250,${alpha})`;
+    // Translate piano-relative x to canvas x:
+    // canvas sits in .left-panel; piano-wrap has padding-left = PIANO_SCROLL_PADDING
+    const x = baseX - scrollLeft + PIANO_SCROLL_PADDING;
+    const y = canvas.height * frac;
+    const isBlack = BLACK_PCS.has(n.midi % 12);
+    const w = isBlack ? BW : WW - 2;
+    const h = Math.max(6, 10 * (1 - frac));
+    const alpha = (1 - frac) * 0.9;
+
+    if(n.src === 'yt'){
+      ctx2d.fillStyle  = `rgba(167,139,250,${alpha})`;
       ctx2d.shadowColor = 'rgba(167,139,250,.9)';
     } else {
-      ctx2d.fillStyle = `rgba(52,211,153,${alpha})`;
+      ctx2d.fillStyle  = `rgba(52,211,153,${alpha})`;
       ctx2d.shadowColor = 'rgba(52,211,153,.9)';
     }
     ctx2d.shadowBlur = 8;
     ctx2d.beginPath();
-    ctx2d.roundRect(x-w/2, y, w, h, 3);
+    ctx2d.roundRect(x - w / 2, y, w, h, 3);
     ctx2d.fill();
     ctx2d.shadowBlur = 0;
   }
@@ -796,27 +804,26 @@ function extractVideoId(url){
     /(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?#]+)/,
     /youtube\.com\/shorts\/([^&\s?#]+)/
   ];
-  for(const p of pats){ const m=url.match(p); if(m) return m[1]; }
+  for(const p of pats){ const m = url.match(p); if(m) return m[1]; }
   return null;
 }
 
-function onYouTubeIframeAPIReady(){ /* API ready */ }
-
-function loadVideo(){
-  const url = document.getElementById('url-input').value.trim();
-  const vid = extractVideoId(url);
-  if(!vid){ showToast('⚠ Invalid URL','bad'); return; }
-  document.getElementById('placeholder').style.display='none';
-
-  if(ytPlayer){
-    ytPlayer.loadVideoById(vid);
-    return;
+// Called by YouTube IFrame API when it's ready
+function onYouTubeIframeAPIReady(){
+  ytAPIReady = true;
+  // If loadVideo() was called before the API was ready, create the player now
+  if(window._pendingVideoId){
+    createPlayer(window._pendingVideoId);
+    window._pendingVideoId = null;
   }
+}
 
-  ytPlayer = new YT.Player('yt-player',{
+function createPlayer(vid){
+  document.getElementById('placeholder').style.display = 'none';
+  ytPlayer = new YT.Player('yt-player', {
     videoId: vid,
-    playerVars:{ autoplay:1, playsinline:1, rel:0, modestbranding:1 },
-    events:{
+    playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1 },
+    events: {
       onReady: e => {
         playerReady = true;
         e.target.setPlaybackRate(+document.getElementById('speed-slider').value);
@@ -830,14 +837,34 @@ function loadVideo(){
   });
 }
 
+function loadVideo(){
+  const url = document.getElementById('url-input').value.trim();
+  const vid = extractVideoId(url);
+  if(!vid){ showToast('⚠ Invalid URL','bad'); return; }
+
+  if(ytPlayer && playerReady){
+    ytPlayer.loadVideoById(vid);
+    document.getElementById('placeholder').style.display = 'none';
+    return;
+  }
+
+  if(ytAPIReady){
+    createPlayer(vid);
+  } else {
+    // API not ready yet — queue the video id
+    window._pendingVideoId = vid;
+    document.getElementById('placeholder').style.display = 'none';
+  }
+}
+
 function togglePlay(){
   if(!ytPlayer) return;
   isPlaying ? ytPlayer.pauseVideo() : ytPlayer.playVideo();
 }
 
 function seekRel(s){
-  if(!ytPlayer) return;
-  ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime()+s), true);
+  if(!ytPlayer || !playerReady) return;
+  ytPlayer.seekTo(Math.max(0, ytPlayer.getCurrentTime() + s), true);
 }
 
 function setSpeed(v){
@@ -846,25 +873,25 @@ function setSpeed(v){
 }
 
 function setLoopA(){
-  if(!ytPlayer) return;
+  if(!ytPlayer || !playerReady) return;
   loopA = ytPlayer.getCurrentTime();
   document.getElementById('loop-a-lbl').textContent = formatTime(loopA);
 }
 function setLoopB(){
-  if(!ytPlayer) return;
+  if(!ytPlayer || !playerReady) return;
   loopB = ytPlayer.getCurrentTime();
   document.getElementById('loop-b-lbl').textContent = formatTime(loopB);
 }
 function clearLoop(){
-  loopA=null; loopB=null;
-  document.getElementById('loop-a-lbl').textContent='—';
-  document.getElementById('loop-b-lbl').textContent='—';
+  loopA = null; loopB = null;
+  document.getElementById('loop-a-lbl').textContent = '—';
+  document.getElementById('loop-b-lbl').textContent = '—';
 }
 function startLoopWatcher(){
   if(loopTimer) clearInterval(loopTimer);
-  loopTimer = setInterval(()=>{
-    if(!ytPlayer||loopA==null||loopB==null) return;
-    if(ytPlayer.getCurrentTime() >= loopB) ytPlayer.seekTo(loopA,true);
+  loopTimer = setInterval(() => {
+    if(!ytPlayer || !playerReady || loopA == null || loopB == null) return;
+    if(ytPlayer.getCurrentTime() >= loopB) ytPlayer.seekTo(loopA, true);
   }, 200);
 }
 
@@ -882,32 +909,32 @@ function closeModal(){
 async function startCapture(){
   closeModal();
   try {
-    const constraints = {
-      video: true,          // required by some browsers; we stop it immediately
+    captureStream = await navigator.mediaDevices.getDisplayMedia({
+      video: true,   // required by spec; we drop it immediately
       audio: {
-        echoCancellation:false,
-        noiseSuppression:false,
-        autoGainControl:false,
-        sampleRate:44100,
-        channelCount:1
+        echoCancellation: false,
+        noiseSuppression: false,
+        autoGainControl:  false,
+        sampleRate: 44100,
+        channelCount: 1
       },
-      preferCurrentTab: true  // Chrome hint
-    };
-    captureStream = await navigator.mediaDevices.getDisplayMedia(constraints);
+      preferCurrentTab: true
+    });
 
-    // Stop video track immediately – we only want audio
-    captureStream.getVideoTracks().forEach(t=>t.stop());
+    // Drop video track — we only need audio
+    captureStream.getVideoTracks().forEach(t => t.stop());
 
     const audioTracks = captureStream.getAudioTracks();
     if(!audioTracks.length){
       alert('No audio track found.\nMake sure to check "Share tab audio" in the browser dialog and select the correct tab.');
-      captureStream.getTracks().forEach(t=>t.stop());
+      captureStream.getTracks().forEach(t => t.stop());
+      captureStream = null;
       return;
     }
 
-    audioCtx  = new (window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
-    const src  = audioCtx.createMediaStreamSource(captureStream);
-    analyser   = audioCtx.createAnalyser();
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)({ sampleRate: 44100 });
+    const src = audioCtx.createMediaStreamSource(captureStream);
+    analyser  = audioCtx.createAnalyser();
     analyser.fftSize = 8192;
     analyser.smoothingTimeConstant = 0.1;
     src.connect(analyser);
@@ -915,37 +942,35 @@ async function startCapture(){
     isCapturing = true;
     document.getElementById('capture-btn').textContent = '⏹ Stop Capture';
     document.getElementById('capture-btn').classList.add('stop');
-    const ab = document.getElementById('audio-badge');
-    ab.classList.add('listening');
+    document.getElementById('audio-badge').classList.add('listening');
     document.getElementById('audio-label').textContent = 'Listening…';
 
-    captureStream.getTracks().forEach(t=>t.addEventListener('ended', stopCapture));
+    captureStream.getTracks().forEach(t => t.addEventListener('ended', stopCapture));
     pitchTimer = setInterval(runPitchDetection, 60);
 
   } catch(err){
     if(err.name !== 'NotAllowedError'){
-      alert('Capture failed: '+err.message+'\n\nNote: This feature requires Chrome or Edge.');
+      alert('Capture failed: ' + err.message + '\n\nNote: This feature requires Chrome or Edge.');
     }
   }
 }
 
 function stopCapture(){
   isCapturing = false;
-  if(pitchTimer) clearInterval(pitchTimer);
-  if(captureStream) captureStream.getTracks().forEach(t=>t.stop());
-  if(audioCtx) audioCtx.close().catch(()=>{});
-  captureStream=null; audioCtx=null; analyser=null;
+  if(pitchTimer)     clearInterval(pitchTimer);
+  if(captureStream)  captureStream.getTracks().forEach(t => t.stop());
+  if(audioCtx)       audioCtx.close().catch(() => {});
+  captureStream = null; audioCtx = null; analyser = null;
 
   const prev = detectedMidi;
-  detectedMidi=null; detectedFreq=null;
-  if(prev!=null) refreshKey(prev);
-  updateDetDisplay(null,null);
+  detectedMidi = null; detectedFreq = null;
+  if(prev != null) refreshKey(prev);
+  updateDetDisplay(null, null);
 
-  document.getElementById('capture-btn').textContent='Capture Tab Audio';
+  document.getElementById('capture-btn').textContent = 'Capture Tab Audio';
   document.getElementById('capture-btn').classList.remove('stop');
-  const ab=document.getElementById('audio-badge');
-  ab.classList.remove('listening');
-  document.getElementById('audio-label').textContent='Audio';
+  document.getElementById('audio-badge').classList.remove('listening');
+  document.getElementById('audio-label').textContent = 'Audio';
 }
 
 /* ============================================================
@@ -956,96 +981,97 @@ function runPitchDetection(){
   const buf = new Float32Array(analyser.fftSize);
   analyser.getFloatTimeDomainData(buf);
 
-  // RMS gate
-  let rms=0;
-  for(let i=0;i<buf.length;i++) rms+=buf[i]*buf[i];
-  rms=Math.sqrt(rms/buf.length);
+  // RMS silence gate
+  let rms = 0;
+  for(let i = 0; i < buf.length; i++) rms += buf[i] * buf[i];
+  rms = Math.sqrt(rms / buf.length);
 
   if(rms < 0.007){
-    if(detectedMidi!==null){
-      const prev=detectedMidi;
-      detectedMidi=null; detectedFreq=null;
+    if(detectedMidi !== null){
+      const prev = detectedMidi;
+      detectedMidi = null; detectedFreq = null;
       refreshKey(prev);
-      updateDetDisplay(null,null);
+      updateDetDisplay(null, null);
     }
     return;
   }
 
   const freq = acf2plus(buf, audioCtx.sampleRate);
-  if(freq<=0 || freq<27 || freq>4200) return;
+  if(freq <= 0 || freq < 27 || freq > 4200) return;
 
   const midi = freqToMidi(freq);
-  if(midi<21||midi>108) return;
+  if(midi < 21 || midi > 108) return;
 
   const prevMidi = detectedMidi;
-  detectedMidi = midi;
-  detectedFreq = freq;
+  detectedMidi   = midi;
+  detectedFreq   = freq;
 
-  if(prevMidi!==null && prevMidi!==midi) refreshKey(prevMidi);
+  if(prevMidi !== null && prevMidi !== midi) refreshKey(prevMidi);
   refreshKey(midi);
   updateDetDisplay(midi, freq);
-  noteTrail.push({ midi, t:performance.now(), src:'yt' });
+  noteTrail.push({ midi, t: performance.now(), src: 'yt' });
 
-  // Practice mode — new note detected
-  if(practiceMode && !practicePaused && midi!==prevMidi){
+  // Practice mode: pause on each new note
+  if(practiceMode && !practicePaused && midi !== prevMidi){
     onNewPracticeNote(midi);
   }
 }
 
 function acf2plus(buf, sr){
-  const n = buf.length;
-  const half = Math.floor(n/2);
+  const n    = buf.length;
+  const half = Math.floor(n / 2);
 
-  // Find first zero-crossing (start of first period)
-  let r1=0, r2=n-1;
-  for(let i=0;i<half;i++){ if(buf[i]<0){r1=i;break;} }
-  for(let i=n-1;i>0;i--){ if(buf[i]>0){r2=i;break;} }
+  // Find first negative zero-crossing and last positive zero-crossing
+  let r1 = 0, r2 = n - 1;
+  for(let i = 0; i < half; i++){ if(buf[i] < 0){ r1 = i; break; } }
+  for(let i = n - 1; i > 0; i--){ if(buf[i] > 0){ r2 = i; break; } }
 
-  const trimmed = buf.slice(r1, r2+1);
-  const tLen = trimmed.length;
+  const trimmed = buf.slice(r1, r2 + 1);
+  const tLen    = trimmed.length;
   if(tLen < 2) return -1;
 
-  // Build autocorrelation
+  // Autocorrelation
   const corr = new Float32Array(tLen);
-  for(let lag=0;lag<tLen;lag++){
-    let s=0;
-    for(let i=0;i<tLen-lag;i++) s+=trimmed[i]*trimmed[i+lag];
-    corr[lag]=s;
+  for(let lag = 0; lag < tLen; lag++){
+    let s = 0;
+    for(let i = 0; i < tLen - lag; i++) s += trimmed[i] * trimmed[i + lag];
+    corr[lag] = s;
   }
 
-  // Find first dip
-  let d=1;
-  while(d<tLen-1 && corr[d]>corr[d-1]) d++;
+  // Find first dip past zero-lag
+  let d = 1;
+  while(d < tLen - 1 && corr[d] > corr[d - 1]) d++;
 
   // Find highest peak after dip
-  let maxVal=-Infinity, maxLag=d;
-  for(let i=d;i<tLen;i++){
-    if(corr[i]>maxVal){ maxVal=corr[i]; maxLag=i; }
+  let maxVal = -Infinity, maxLag = d;
+  for(let i = d; i < tLen; i++){
+    if(corr[i] > maxVal){ maxVal = corr[i]; maxLag = i; }
   }
 
-  // Must be a real peak (>50% of zero-lag)
-  if(corr[0]===0 || maxVal/corr[0]<0.5) return -1;
+  // Must be a real periodic peak (>50 % of zero-lag energy)
+  if(corr[0] === 0 || maxVal / corr[0] < 0.5) return -1;
 
-  // Parabolic interpolation
-  const a = maxLag>0      ? corr[maxLag-1] : 0;
-  const b = corr[maxLag];
-  const c = maxLag<tLen-1 ? corr[maxLag+1] : 0;
-  const denom = 2*(2*b-a-c);
-  const shift = denom!==0 ? (a-c)/denom : 0;
-  const exactLag = maxLag + shift;
+  // Parabolic interpolation for sub-sample accuracy
+  const a     = maxLag > 0      ? corr[maxLag - 1] : 0;
+  const b     = corr[maxLag];
+  const c     = maxLag < tLen-1 ? corr[maxLag + 1] : 0;
+  const denom = 2 * (2 * b - a - c);
+  const shift = denom !== 0 ? (a - c) / denom : 0;
 
-  return sr/exactLag;
+  return sr / (maxLag + shift);
 }
 
 function updateDetDisplay(midi, freq){
   const nameEl = document.getElementById('det-name');
   const infoEl = document.getElementById('det-info');
-  if(midi==null){
-    nameEl.textContent='—'; nameEl.classList.add('dim');
+  if(midi == null){
+    nameEl.textContent = '—';
+    nameEl.classList.add('dim');
     infoEl.textContent = isCapturing ? 'Listening for notes…' : 'No audio captured';
   } else {
-    nameEl.textContent = midiName(midi); nameEl.classList.remove('dim');
-    infoEl.textContent = freq.toFixed(1)+' Hz — MIDI '+midi;
+    nameEl.textContent = midiName(midi);
+    nameEl.classList.remove('dim');
+    infoEl.textContent = freq.toFixed(1) + ' Hz — MIDI ' + midi;
   }
 }
 
@@ -1053,45 +1079,44 @@ function updateDetDisplay(midi, freq){
    MIDI
    ============================================================ */
 async function initMidi(){
-  if(!navigator.requestMIDIAccess){ alert('WebMIDI not supported in this browser.\nUse Chrome or Edge.'); return; }
+  if(!navigator.requestMIDIAccess){
+    alert('WebMIDI not supported in this browser.\nUse Chrome or Edge.');
+    return;
+  }
   try {
     midiAccess = await navigator.requestMIDIAccess();
     hookMidiInputs();
     midiAccess.onstatechange = hookMidiInputs;
 
-    midiConnected=true;
-    const btn=document.getElementById('midi-btn');
-    btn.textContent='✓ Piano Connected';
+    midiConnected = true;
+    const btn = document.getElementById('midi-btn');
+    btn.textContent = '✓ Piano Connected';
     btn.classList.add('on');
-    const badge=document.getElementById('midi-badge');
-    badge.classList.add('active');
-    document.getElementById('midi-label').textContent='MIDI';
+    document.getElementById('midi-badge').classList.add('active');
+    document.getElementById('midi-label').textContent = 'MIDI';
   } catch(e){
-    alert('MIDI access denied.\n'+e.message);
+    alert('MIDI access denied.\n' + e.message);
   }
 }
 
 function hookMidiInputs(){
   if(!midiAccess) return;
-  for(const input of midiAccess.inputs.values()){
-    input.onmidimessage = onMidi;
-  }
+  for(const input of midiAccess.inputs.values()) input.onmidimessage = onMidi;
 }
 
 function onMidi(e){
   const [st, note, vel] = e.data;
   const cmd = st & 0xf0;
-  if(cmd===0x90 && vel>0){
+
+  if(cmd === 0x90 && vel > 0){
     activeMidi.add(note);
     refreshKey(note);
-    noteTrail.push({ midi:note, t:performance.now(), src:'midi' });
+    noteTrail.push({ midi: note, t: performance.now(), src: 'midi' });
     updateChips();
-    // Practice check
-    if(practiceMode && practicePaused && detectedMidi!=null){
-      if(note===detectedMidi) onPracticeCorrect(note);
-      else onPracticeWrong(note);
+    if(practiceMode && practicePaused && detectedMidi != null){
+      note === detectedMidi ? onPracticeCorrect(note) : onPracticeWrong(note);
     }
-  } else if(cmd===0x80||(cmd===0x90&&vel===0)){
+  } else if(cmd === 0x80 || (cmd === 0x90 && vel === 0)){
     activeMidi.delete(note);
     refreshKey(note);
     updateChips();
@@ -1100,10 +1125,11 @@ function onMidi(e){
 
 function updateChips(){
   const el = document.getElementById('midi-chips');
-  el.innerHTML='';
-  for(const m of [...activeMidi].sort((a,b)=>a-b)){
-    const c=document.createElement('div');
-    c.className='chip'; c.textContent=midiName(m);
+  el.innerHTML = '';
+  for(const m of [...activeMidi].sort((a,b) => a - b)){
+    const c = document.createElement('div');
+    c.className   = 'chip';
+    c.textContent = midiName(m);
     el.appendChild(c);
   }
 }
@@ -1112,95 +1138,95 @@ function updateChips(){
    PRACTICE MODE
    ============================================================ */
 function togglePractice(){
-  practiceMode = document.getElementById('practice-chk').checked;
-  practicePaused=false;
-  if(!practiceMode && ytPlayer) ytPlayer.playVideo();
+  practiceMode  = document.getElementById('practice-chk').checked;
+  practicePaused = false;
+  if(!practiceMode && ytPlayer && playerReady) ytPlayer.playVideo();
 }
 
 function onNewPracticeNote(midi){
-  if(!ytPlayer||!practiceMode) return;
+  if(!ytPlayer || !practiceMode) return;
   ytPlayer.pauseVideo();
-  practicePaused=true;
-  // Hint: the key is already lit with det-lit via refreshKey
+  practicePaused = true;
 }
 
 function onPracticeCorrect(midi){
   scoreCorrect++;
-  document.getElementById('sc-correct').textContent=scoreCorrect;
-  practicePaused=false;
-  showToast('✓','ok');
-  if(ytPlayer) ytPlayer.playVideo();
+  document.getElementById('sc-correct').textContent = scoreCorrect;
+  practicePaused = false;
+  showToast('✓', 'ok');
+  if(ytPlayer && playerReady) ytPlayer.playVideo();
 }
 
 function onPracticeWrong(midi){
   scoreMiss++;
-  document.getElementById('sc-miss').textContent=scoreMiss;
+  document.getElementById('sc-miss').textContent = scoreMiss;
   flashWrong(midi);
-  showToast('✗','bad');
+  showToast('✗', 'bad');
 }
 
 function resetScore(){
-  scoreCorrect=0; scoreMiss=0;
-  document.getElementById('sc-correct').textContent='0';
-  document.getElementById('sc-miss').textContent='0';
+  scoreCorrect = 0; scoreMiss = 0;
+  document.getElementById('sc-correct').textContent = '0';
+  document.getElementById('sc-miss').textContent    = '0';
 }
 
 /* ============================================================
    TOAST
    ============================================================ */
-let toastTO=null;
+let toastTO = null;
 function showToast(txt, cls){
-  const t=document.getElementById('toast');
-  t.textContent=txt; t.className='show '+cls;
+  const t = document.getElementById('toast');
+  t.textContent = txt;
+  t.className = 'show ' + cls;
   clearTimeout(toastTO);
-  toastTO=setTimeout(()=>t.className='',700);
+  toastTO = setTimeout(() => t.className = '', 700);
 }
 
 /* ============================================================
    INIT
    ============================================================ */
-window.addEventListener('DOMContentLoaded', ()=>{
+window.addEventListener('DOMContentLoaded', () => {
   buildPiano();
   drawTrail();
 
-  // Pre-load the URL from the tutorial the user mentioned
-  document.getElementById('url-input').value='https://www.youtube.com/watch?v=axl1WM_C3uc';
+  document.getElementById('url-input').value = 'https://www.youtube.com/watch?v=axl1WM_C3uc';
+  document.getElementById('url-input').addEventListener('keydown', e => { if(e.key === 'Enter') loadVideo(); });
 
-  // Enter to load
-  document.getElementById('url-input').addEventListener('keydown', e=>{ if(e.key==='Enter') loadVideo(); });
-
-  // Resize
   window.addEventListener('resize', syncCanvasSize);
 
-  // Scroll piano to C3 area by default
-  setTimeout(()=>{
-    const s=document.querySelector('.piano-scroll');
-    if(s) s.scrollLeft = (12*WW); // 12 white keys in
-  },200);
+  // Scroll piano to C3 area by default (12 white keys in from C2)
+  setTimeout(() => {
+    const s = document.querySelector('.piano-scroll');
+    if(s) s.scrollLeft = 12 * WW;
+  }, 200);
 
-  // Auto-connect MIDI if available
+  // Auto-connect MIDI if a device is already available
   if(navigator.requestMIDIAccess){
-    navigator.requestMIDIAccess().then(acc=>{
-      if(acc.inputs.size>0){
-        midiAccess=acc; hookMidiInputs(); midiConnected=true;
+    navigator.requestMIDIAccess().then(acc => {
+      if(acc.inputs.size > 0){
+        midiAccess    = acc;
+        hookMidiInputs();
+        midiConnected = true;
         document.getElementById('midi-badge').classList.add('active');
-        document.getElementById('midi-label').textContent='MIDI';
-        document.getElementById('midi-btn').textContent='✓ Piano Connected';
+        document.getElementById('midi-label').textContent = 'MIDI';
+        document.getElementById('midi-btn').textContent   = '✓ Piano Connected';
         document.getElementById('midi-btn').classList.add('on');
-        acc.onstatechange=hookMidiInputs;
+        acc.onstatechange = hookMidiInputs;
       }
-    }).catch(()=>{});
+    }).catch(() => {});
   }
 });
 
-// Keyboard shortcuts
-document.addEventListener('keydown', e=>{
-  if(e.target.tagName==='INPUT') return;
-  if(e.key===' '){ e.preventDefault(); togglePlay(); }
-  if(e.key==='ArrowLeft')  seekRel(-5);
-  if(e.key==='ArrowRight') seekRel(5);
-  if(e.key==='a') setLoopA();
-  if(e.key==='b') setLoopB();
+/* ============================================================
+   KEYBOARD SHORTCUTS
+   ============================================================ */
+document.addEventListener('keydown', e => {
+  if(e.target.tagName === 'INPUT') return;
+  if(e.key === ' ')          { e.preventDefault(); togglePlay(); }
+  if(e.key === 'ArrowLeft')  seekRel(-5);
+  if(e.key === 'ArrowRight') seekRel(5);
+  if(e.key === 'a')          setLoopA();
+  if(e.key === 'b')          setLoopB();
 });
 </script>
 </body>
