@@ -408,7 +408,6 @@ input[type=range]::-webkit-slider-thumb{
       <canvas id="trail-canvas"></canvas>
       <div class="trail-label">waterfall</div>
       <div class="wf-time-top" id="wf-time-top">1.4s</div>
-      <div class="wf-time-bot">now ↓</div>
     </div>
   </div>
 
@@ -744,7 +743,8 @@ function drawWaterfall(){
   const now       = performance.now();
   const scrollEl  = document.querySelector('.piano-scroll');
   const scrollLeft = scrollEl ? scrollEl.scrollLeft : 0;
-  const hitY      = H - 8;   // the "now" line near bottom
+  const BAR_H  = 28;                    // full-width "now" bar height
+  const hitY   = H - BAR_H;            // top of the now bar
 
   // ── Process arrivals ─────────────────────────────────────
   const arrived = pendingNotes.filter(n => n.arrivesAt <= now);
@@ -777,18 +777,38 @@ function drawWaterfall(){
     const isB = BLACK_PCS.has(m % 12);
     const lw  = isB ? BW : WW;
     ctx2d.fillStyle = 'rgba(167,139,250,0.06)';
-    ctx2d.fillRect(x - lw / 2, 0, lw, H);
+    ctx2d.fillRect(x - lw / 2, 0, lw, hitY);
   }
 
-  // ── Hit zone ─────────────────────────────────────────────
-  const hitGrad = ctx2d.createLinearGradient(0, hitY - 20, 0, hitY + 8);
-  hitGrad.addColorStop(0, 'rgba(167,139,250,0)');
-  hitGrad.addColorStop(1, 'rgba(167,139,250,0.2)');
-  ctx2d.fillStyle = hitGrad;
-  ctx2d.fillRect(0, hitY - 20, W, 28);
+  // ── Full-width NOW bar ────────────────────────────────────
+  // Gradient fade above the bar
+  const fadeGrad = ctx2d.createLinearGradient(0, hitY - 32, 0, hitY);
+  fadeGrad.addColorStop(0, 'rgba(139,92,246,0)');
+  fadeGrad.addColorStop(1, 'rgba(139,92,246,0.18)');
+  ctx2d.fillStyle = fadeGrad;
+  ctx2d.fillRect(0, hitY - 32, W, 32);
 
-  ctx2d.fillStyle = 'rgba(167,139,250,0.5)';
-  ctx2d.fillRect(0, hitY, W, 1);
+  // Solid bar
+  const barGrad = ctx2d.createLinearGradient(0, hitY, 0, H);
+  barGrad.addColorStop(0, 'rgba(167,139,250,0.55)');
+  barGrad.addColorStop(0.18, 'rgba(139,92,246,0.22)');
+  barGrad.addColorStop(1,    'rgba(80,40,160,0.08)');
+  ctx2d.fillStyle = barGrad;
+  ctx2d.fillRect(0, hitY, W, BAR_H);
+
+  // Bright top edge of bar — spans full width
+  ctx2d.shadowColor = 'rgba(167,139,250,0.9)';
+  ctx2d.shadowBlur  = 10;
+  ctx2d.fillStyle   = 'rgba(200,170,255,0.85)';
+  ctx2d.fillRect(0, hitY, W, 2);
+  ctx2d.shadowBlur  = 0;
+
+  // "NOW" label on the right
+  ctx2d.fillStyle = 'rgba(167,139,250,0.45)';
+  ctx2d.font      = '700 9px "Space Mono", monospace';
+  ctx2d.textAlign = 'right';
+  ctx2d.fillText('NOW', W - 8, hitY + 17);
+  ctx2d.textAlign = 'left';
 
   // ── Falling blocks ───────────────────────────────────────
   for(const n of pendingNotes){
@@ -822,7 +842,7 @@ function drawWaterfall(){
     ctx2d.shadowBlur = 0;
   }
 
-  // ── Arrival flashes (purple burst at hit zone) ───────────
+  // ── Arrival flashes — burst inside the now bar per-key ───
   for(const n of recentArrivals){
     const age  = (now - n.t) / 400;
     if(age > 1) continue;
@@ -830,19 +850,19 @@ function drawWaterfall(){
     if(baseX == null) continue;
     const x   = baseX - scrollLeft + PIANO_SCROLL_PADDING;
     const isB = BLACK_PCS.has(n.midi % 12);
-    const bw  = (isB ? BW : WW - 2) * (1 + age * 0.5);
+    const bw  = (isB ? BW : WW - 2) * (1 + age * 0.4);
     const alpha = (1 - age) * 0.95;
 
-    ctx2d.shadowColor = 'rgba(167,139,250,0.9)';
-    ctx2d.shadowBlur  = 20 * (1 - age);
-    ctx2d.fillStyle   = `rgba(167,139,250,${alpha})`;
+    ctx2d.shadowColor = 'rgba(200,160,255,0.95)';
+    ctx2d.shadowBlur  = 22 * (1 - age);
+    ctx2d.fillStyle   = `rgba(200,160,255,${alpha})`;
     ctx2d.beginPath();
-    ctx2d.roundRect(x - bw / 2, hitY - 8, bw, 8, 2);
+    ctx2d.roundRect(x - bw / 2, hitY + 2, bw, BAR_H - 4, 3);
     ctx2d.fill();
     ctx2d.shadowBlur = 0;
   }
 
-  // ── MIDI green flashes at bottom ─────────────────────────
+  // ── MIDI green flashes inside the now bar ─────────────────
   for(const n of midiFlashTrail){
     const age   = (now - n.t) / 600;
     if(age > 1) continue;
@@ -851,14 +871,14 @@ function drawWaterfall(){
     const x   = baseX - scrollLeft + PIANO_SCROLL_PADDING;
     const isB = BLACK_PCS.has(n.midi % 12);
     const bw  = isB ? BW - 2 : WW - 4;
-    const bh  = 12 * (1 - age);
+    const bh  = (BAR_H - 4) * (1 - age * 0.5);
     const alpha = (1 - age) * 0.9;
 
     ctx2d.shadowColor = `rgba(52,211,153,0.9)`;
     ctx2d.shadowBlur  = 12 * (1 - age);
     ctx2d.fillStyle   = `rgba(52,211,153,${alpha})`;
     ctx2d.beginPath();
-    ctx2d.roundRect(x - bw / 2, H - bh, bw, bh, 3);
+    ctx2d.roundRect(x - bw / 2, hitY + (BAR_H - bh) / 2, bw, bh, 3);
     ctx2d.fill();
     ctx2d.shadowBlur = 0;
   }
@@ -957,9 +977,32 @@ function onYouTubeIframeAPIReady(){
 
 function createPlayer(vid){
   document.getElementById('placeholder').style.display = 'none';
-  ytPlayer = new YT.Player('yt-player', {
-    videoId: vid,
-    playerVars: { autoplay: 1, playsinline: 1, rel: 0, modestbranding: 1, origin: window.location.origin },
+
+  // Pre-build the iframe pointing at YouTube BEFORE calling YT.Player.
+  // www-widgetapi.js starts pinging contentWindow immediately on construction;
+  // if the iframe hasn't navigated to youtube.com yet its origin is still the
+  // host page, causing the "target origin does not match" postMessage error.
+  // Passing an already-navigating iframe element (not a bare div id) closes
+  // that race window entirely.
+  const wrap = document.getElementById('yt-player');
+  wrap.innerHTML = '';
+
+  const params = new URLSearchParams({
+    enablejsapi: 1,
+    origin:       window.location.origin,
+    autoplay:     1,
+    playsinline:  1,
+    rel:          0,
+    modestbranding: 1
+  });
+  const iframe = document.createElement('iframe');
+  iframe.style.cssText    = 'position:absolute;inset:0;width:100%;height:100%;border:0';
+  iframe.allow            = 'autoplay; encrypted-media; picture-in-picture';
+  iframe.allowFullscreen  = true;
+  iframe.src = `https://www.youtube.com/embed/${vid}?${params}`;
+  wrap.appendChild(iframe);
+
+  ytPlayer = new YT.Player(iframe, {
     events: {
       onReady: e => {
         playerReady = true;
@@ -1159,7 +1202,7 @@ function acf2plus(buf, sr){
 async function initMidi(){
   if(!navigator.requestMIDIAccess){ alert('WebMIDI not supported. Use Chrome or Edge.'); return; }
   try {
-    midiAccess = await navigator.requestMIDIAccess();
+    midiAccess = await navigator.requestMIDIAccess({ sysex: false });
     hookMidiInputs();
     midiAccess.onstatechange = hookMidiInputs;
     midiConnected = true;
@@ -1279,7 +1322,7 @@ window.addEventListener('DOMContentLoaded', () => {
   }, 200);
 
   if(navigator.requestMIDIAccess){
-    navigator.requestMIDIAccess().then(acc => {
+    navigator.requestMIDIAccess({ sysex: false }).then(acc => {
       if(acc.inputs.size > 0){
         midiAccess    = acc;
         hookMidiInputs();
