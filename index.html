@@ -1013,6 +1013,14 @@ function closeModal(){ document.getElementById('capture-modal').classList.remove
 
 async function startCapture(){
   closeModal();
+
+  // Brave blocks tab audio at the browser level — warn before even trying
+  const isBrave = !!(navigator.brave && await navigator.brave.isBrave().catch(()=>false));
+  if(isBrave){
+    alert('⚠️ Brave Browser blocks tab audio capture at the browser level.\n\nPlease use Chrome or Edge for the audio detection feature.\n\n(Video, MIDI, and practice mode all work fine in Brave.)');
+    return;
+  }
+
   try {
     captureStream = await navigator.mediaDevices.getDisplayMedia({
       video: true,
@@ -1023,7 +1031,7 @@ async function startCapture(){
 
     const audioTracks = captureStream.getAudioTracks();
     if(!audioTracks.length){
-      alert('No audio track found.\nMake sure to check "Share tab audio" in the browser dialog.');
+      alert('❌ No audio track received.\n\nIn the browser share dialog you must:\n1. Select the TAB (not Window or Screen)\n2. Check ✓ "Share tab audio" before clicking Share\n\nIf you did both and still see this, your browser is blocking tab audio (common in Brave/Firefox).');
       captureStream.getTracks().forEach(t => t.stop());
       captureStream = null; return;
     }
@@ -1040,13 +1048,30 @@ async function startCapture(){
     document.getElementById('capture-btn').classList.add('stop');
     document.getElementById('audio-badge').classList.add('listening');
     document.getElementById('audio-label').textContent = 'Listening…';
+    document.getElementById('det-info').textContent = 'Connected — play the video to detect notes';
 
     captureStream.getTracks().forEach(t => t.addEventListener('ended', stopCapture));
     pitchTimer = setInterval(runPitchDetection, 60);
 
+    // After 4 s with no signal, warn that audio is silent
+    setTimeout(() => {
+      if(!isCapturing || !analyser) return;
+      const buf = new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(buf);
+      let rms = 0; for(const v of buf) rms += v*v; rms = Math.sqrt(rms/buf.length);
+      if(rms < 0.0001){
+        document.getElementById('det-info').textContent =
+          '⚠️ Stream is silent — did you check "Share tab audio"?';
+      }
+    }, 4000);
+
   } catch(err){
-    if(err.name !== 'NotAllowedError'){
-      alert('Capture failed: ' + err.message + '\n\nNote: This feature requires Chrome or Edge.');
+    if(err.name === 'NotAllowedError'){
+      // User cancelled — do nothing
+    } else if(err.name === 'NotSupportedError'){
+      alert('❌ Tab audio capture is not supported in this browser.\nUse Chrome 74+ or Edge 79+.');
+    } else {
+      alert('❌ Capture failed: ' + err.message + '\n\nThis feature requires Chrome or Edge.');
     }
   }
 }
