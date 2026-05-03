@@ -316,10 +316,10 @@ function buildPiano(){
 }
 
 function queueMidiFall(m){
-  const src=detectedChord.has(m)?'both':'midi';
+  // Upgrade any in-flight detected block for this pitch to 'both'
   const existing=pendingNotes.find(n=>n.midi===m&&n.src==='det');
-  if(existing) existing.src='both';
-  else pendingNotes.push({midi:m,arrivesAt:performance.now()+FALL_DURATION,src});
+  if(existing){existing.src='both';}
+  else{pendingNotes.push({midi:m,arrivesAt:performance.now()+FALL_DURATION,src:'midi'});}
 }
 function clickNoteOn(m){activeMidi.add(m);queueMidiFall(m);midiFlashTrail.push({midi:m,t:performance.now()});refreshKey(m);updateChips();}
 function clickNoteOff(m){activeMidi.delete(m);refreshKey(m);updateChips();}
@@ -359,11 +359,10 @@ function drawWaterfall(){
   const scrollEl=document.querySelector('.piano-scroll');
   const scrollLeft=scrollEl?scrollEl.scrollLeft:0;
 
-  const LINE_H = 3;            // thickness of the purple launch line
-  const lineY  = 0;            // line sits flush at the very top
-  const fallTo = H;            // blocks land at the bottom
+  const LINE_H=3;
+  const lineY=0;
+  const fallTo=H;
 
-  // Process arrivals
   const arrived=pendingNotes.filter(n=>n.arrivesAt<=now);
   pendingNotes=pendingNotes.filter(n=>n.arrivesAt>now);
   if(arrived.length>0){
@@ -376,7 +375,6 @@ function drawWaterfall(){
     const old=[...detectedChord];detectedChord.clear();targetChord.clear();old.forEach(m=>refreshKey(m));updateDetDisplay();
   }
 
-  // ── 1. Lane highlights ──────────────────────────────────
   const pendingSet=new Set(pendingNotes.map(n=>n.midi));
   for(const m of pendingSet){
     const baseX=keyXPos[m];if(baseX==null)continue;
@@ -386,32 +384,27 @@ function drawWaterfall(){
     ctx2d.fillRect(x-lw/2,LINE_H,lw,fallTo-LINE_H);
   }
 
-  // ── 2. Purple launch line — drawn first so blocks emerge from it ──
-  // Soft glow below the line
   const fadeGrad=ctx2d.createLinearGradient(0,LINE_H,0,LINE_H+24);
   fadeGrad.addColorStop(0,'rgba(139,92,246,0.22)');
   fadeGrad.addColorStop(1,'rgba(139,92,246,0)');
   ctx2d.fillStyle=fadeGrad;
   ctx2d.fillRect(0,LINE_H,W,24);
-  // The line itself
   ctx2d.shadowColor='rgba(180,140,255,1)';
   ctx2d.shadowBlur=12;
   ctx2d.fillStyle='rgba(210,180,255,0.95)';
   ctx2d.fillRect(0,lineY,W,LINE_H);
   ctx2d.shadowBlur=0;
 
-  // ── 3. Falling blocks — coloured by source ───────────────
-  // src:'det'=purple  src:'midi'=green  src:'both'=cyan
-  const COLOURS = {
-    det:  { r:'196,165,255', g:'139,92,246',  s:'167,139,250', e:'220,200,255' },
-    midi: { r:'134,239,172', g:'16,185,129',  s:'52,211,153',  e:'187,247,208' },
-    both: { r:'103,232,249', g:'6,182,212',   s:'0,212,255',   e:'165,243,252' },
+  const COLOURS={
+    det: {r:'196,165,255',g:'139,92,246', s:'167,139,250',e:'220,200,255'},
+    midi:{r:'134,239,172',g:'16,185,129', s:'52,211,153', e:'187,247,208'},
+    both:{r:'103,232,249',g:'6,182,212',  s:'0,212,255',  e:'165,243,252'},
   };
   for(const n of pendingNotes){
     const timeLeft=n.arrivesAt-now;
-    const progress=Math.max(0, 1-timeLeft/FALL_DURATION);
+    const progress=Math.max(0,1-timeLeft/FALL_DURATION);
     const isB=BLACK_PCS.has(n.midi%12);
-    const bw=isB?BW-2:WW-5, bh=14;
+    const bw=isB?BW-2:WW-5,bh=14;
     const baseX=keyXPos[n.midi];if(baseX==null)continue;
     const x=baseX-scrollLeft+PIANO_SCROLL_PADDING;
     const y=LINE_H+progress*(fallTo-LINE_H-bh);
@@ -429,7 +422,6 @@ function drawWaterfall(){
     ctx2d.fillRect(x-bw/2,y,bw,2);
   }
 
-  // ── 4. Arrival flashes at the bottom ─────────────────────
   for(const n of recentArrivals){
     const age=(now-n.t)/400;if(age>1)continue;
     const baseX=keyXPos[n.midi];if(baseX==null)continue;
@@ -444,7 +436,6 @@ function drawWaterfall(){
     ctx2d.shadowBlur=0;
   }
 
-  // ── 5. MIDI green flashes at the bottom ──────────────────
   for(const n of midiFlashTrail){
     const age=(now-n.t)/600;if(age>1)continue;
     const baseX=keyXPos[n.midi];if(baseX==null)continue;
@@ -504,22 +495,42 @@ function extractVideoId(url){
   const pats=[/(?:youtube\.com\/watch\?v=|youtu\.be\/|youtube\.com\/embed\/)([^&\s?#]+)/,/youtube\.com\/shorts\/([^&\s?#]+)/];
   for(const p of pats){const m=url.match(p);if(m)return m[1];}return null;
 }
-function onYouTubeIframeAPIReady(){ytAPIReady=true;if(window._pendingVideoId){createPlayer(window._pendingVideoId);window._pendingVideoId=null;}}
+
+function onYouTubeIframeAPIReady(){
+  ytAPIReady=true;
+  if(window._pendingVideoId){createPlayer(window._pendingVideoId);window._pendingVideoId=null;}
+}
+
 function createPlayer(vid){
   document.getElementById('placeholder').style.display='none';
-  const wrap=document.getElementById('yt-player');wrap.innerHTML='';
-  const params=new URLSearchParams({enablejsapi:1,origin:window.location.origin,autoplay:1,playsinline:1,rel:0,modestbranding:1});
-  const iframe=document.createElement('iframe');
-  iframe.style.cssText='position:absolute;inset:0;width:100%;height:100%;border:0';
-  iframe.allow='autoplay; encrypted-media; picture-in-picture';
-  iframe.allowFullscreen=true;
-  iframe.src=`https://www.youtube.com/embed/${vid}?${params}`;
-  wrap.appendChild(iframe);
-  ytPlayer=new YT.Player(iframe,{events:{
-    onReady:e=>{playerReady=true;e.target.setPlaybackRate(+document.getElementById('speed-slider').value);startLoopWatcher();},
-    onStateChange:e=>{isPlaying=e.data===YT.PlayerState.PLAYING;document.getElementById('play-btn').textContent=isPlaying?'⏸':'▶';}
-  }});
+  const wrap=document.getElementById('yt-player');
+  wrap.innerHTML='<div id="yt-player-inner" style="position:absolute;inset:0;width:100%;height:100%"></div>';
+  ytPlayer=new YT.Player('yt-player-inner',{
+    videoId:vid,
+    width:'100%',
+    height:'100%',
+    playerVars:{
+      autoplay:1,
+      playsinline:1,
+      rel:0,
+      modestbranding:1,
+      enablejsapi:1,
+      origin:window.location.origin
+    },
+    events:{
+      onReady:e=>{
+        playerReady=true;
+        e.target.setPlaybackRate(+document.getElementById('speed-slider').value);
+        startLoopWatcher();
+      },
+      onStateChange:e=>{
+        isPlaying=e.data===YT.PlayerState.PLAYING;
+        document.getElementById('play-btn').textContent=isPlaying?'⏸':'▶';
+      }
+    }
+  });
 }
+
 function loadVideo(){
   const url=document.getElementById('url-input').value.trim();
   const vid=extractVideoId(url);
@@ -597,11 +608,12 @@ function runPitchDetection(){
   if(freq<=0||freq<27||freq>4200)return;
   const midi=freqToMidi(freq);if(midi<21||midi>108)return;
   if(midi!==lastQueuedMidi){
-    const src=activeMidi.has(midi)?'both':'det';
-    // upgrade any in-flight midi block for this pitch
-    const existing=pendingNotes.find(n=>n.midi===midi&&n.src==='midi');
-    if(existing) existing.src='both';
-    else pendingNotes.push({midi,freq,arrivesAt:performance.now()+FALL_DURATION,src});
+    // If this note is already held on the MIDI piano, don't create a separate
+    // audio-detected block — the MIDI piano's own sound was being picked up
+    // by the tab audio capture and double-counted as a "detected" event.
+    if(!activeMidi.has(midi)){
+      pendingNotes.push({midi,freq,arrivesAt:performance.now()+FALL_DURATION,src:'det'});
+    }
     lastQueuedMidi=midi;
   }
 }
@@ -662,23 +674,12 @@ function showToast(txt,cls){
 }
 
 window.addEventListener('DOMContentLoaded',()=>{
-  buildPiano();drawWaterfall();
+  buildPiano();
+  drawWaterfall();
   document.getElementById('url-input').value='https://www.youtube.com/watch?v=axl1WM_C3uc';
   document.getElementById('url-input').addEventListener('keydown',e=>{if(e.key==='Enter')loadVideo();});
   window.addEventListener('resize',syncCanvasSize);
   setTimeout(()=>{const s=document.querySelector('.piano-scroll');if(s)s.scrollLeft=12*WW;},200);
-  if(navigator.requestMIDIAccess){
-    navigator.requestMIDIAccess({sysex:false}).then(acc=>{
-      if(acc.inputs.size>0){
-        midiAccess=acc;hookMidiInputs();midiConnected=true;
-        document.getElementById('midi-badge').classList.add('active');
-        document.getElementById('midi-label').textContent='MIDI';
-        document.getElementById('midi-btn').textContent='✓ Piano Connected';
-        document.getElementById('midi-btn').classList.add('on');
-        acc.onstatechange=hookMidiInputs;
-      }
-    }).catch(()=>{});
-  }
 });
 
 document.addEventListener('keydown',e=>{
