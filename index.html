@@ -571,7 +571,8 @@ captureStream = await navigator.mediaDevices.getDisplayMedia({
     captureStream.getVideoTracks().forEach(t=>t.stop());
     const audioTracks=captureStream.getAudioTracks();
     if(!audioTracks.length){alert('❌ No audio track received.\n\nIn the browser share dialog you must:\n1. Select the TAB (not Window or Screen)\n2. Check ✓ "Share tab audio" before clicking Share\n\nIf you did both and still see this, your browser is blocking tab audio (common in Brave/Firefox).');captureStream.getTracks().forEach(t=>t.stop());captureStream=null;return;}
-    audioCtx=new(window.AudioContext||window.webkitAudioContext)({sampleRate:44100});
+    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+await audioCtx.resume();
     const src=audioCtx.createMediaStreamSource(captureStream);
     analyser=audioCtx.createAnalyser();analyser.fftSize=8192;analyser.smoothingTimeConstant=0.1;
     src.connect(analyser);
