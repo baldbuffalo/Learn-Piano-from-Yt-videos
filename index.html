@@ -564,7 +564,8 @@ async function startCapture(){
   try{
 captureStream = await navigator.mediaDevices.getDisplayMedia({
   video: true,
-  audio: true
+  audio: true,
+  preferCurrentTab: true
 });
     captureStream.getVideoTracks().forEach(t=>t.stop());
     const audioTracks=captureStream.getAudioTracks();
