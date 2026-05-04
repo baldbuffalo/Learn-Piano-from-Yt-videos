@@ -563,10 +563,8 @@ async function startCapture(){
   if(isBrave){alert('⚠️ Brave Browser blocks tab audio capture at the browser level.\n\nPlease use Chrome or Edge for the audio detection feature.\n\n(Video, MIDI, and practice mode all work fine in Brave.)');return;}
   try{
 captureStream = await navigator.mediaDevices.getDisplayMedia({
-  video: {
-    displaySurface: "browser" // forces tab selection UI
-  },
-  audio: true // IMPORTANT: must be true, not object
+  video: true,
+  audio: true
 });
     captureStream.getVideoTracks().forEach(t=>t.stop());
     const audioTracks=captureStream.getAudioTracks();
