@@ -562,7 +562,12 @@ async function startCapture(){
   const isBrave=!!(navigator.brave&&await navigator.brave.isBrave().catch(()=>false));
   if(isBrave){alert('⚠️ Brave Browser blocks tab audio capture at the browser level.\n\nPlease use Chrome or Edge for the audio detection feature.\n\n(Video, MIDI, and practice mode all work fine in Brave.)');return;}
   try{
-    captureStream=await navigator.mediaDevices.getDisplayMedia({video:true,audio:{echoCancellation:false,noiseSuppression:false,autoGainControl:false,sampleRate:44100,channelCount:1},preferCurrentTab:true});
+captureStream = await navigator.mediaDevices.getDisplayMedia({
+  video: {
+    displaySurface: "browser" // forces tab selection UI
+  },
+  audio: true // IMPORTANT: must be true, not object
+});
     captureStream.getVideoTracks().forEach(t=>t.stop());
     const audioTracks=captureStream.getAudioTracks();
     if(!audioTracks.length){alert('❌ No audio track received.\n\nIn the browser share dialog you must:\n1. Select the TAB (not Window or Screen)\n2. Check ✓ "Share tab audio" before clicking Share\n\nIf you did both and still see this, your browser is blocking tab audio (common in Brave/Firefox).');captureStream.getTracks().forEach(t=>t.stop());captureStream=null;return;}
