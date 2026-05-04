@@ -366,7 +366,13 @@ function drawWaterfall(){
   const arrived=pendingNotes.filter(n=>n.arrivesAt<=now);
   pendingNotes=pendingNotes.filter(n=>n.arrivesAt>now);
   if(arrived.length>0){
-    for(const n of arrived)recentArrivals.push({midi:n.midi,freq:n.freq,t:now});
+    for (const n of arrived) {
+  recentArrivals.push({
+    midi: n.midi,
+    freq: n.freq || 0,
+    t: now
+  });
+}
     updateChordState(now);
   }
   recentArrivals=recentArrivals.filter(n=>now-n.t<CHORD_DECAY_MS);
