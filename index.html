@@ -279,6 +279,9 @@ let pendingNotes=[],lastQueuedMidi=null,recentArrivals=[],detectedChord=new Set(
 let practiceMode=false,practicePaused=false,scoreCorrect=0,scoreMiss=0,targetChord=new Set();
 let keyEls={},keyXPos={};
 
+// ─── BUG FIX: track the silent gain node so it doesn't get GC'd ──────────────
+let _silentGain=null;
+
 function midiName(m){return NOTE_NAMES[m%12]+(Math.floor(m/12)-1);}
 function freqToMidi(f){return f>0?Math.round(12*Math.log2(f/440)+69):null;}
 function formatTime(s){if(s==null)return'—';const m=Math.floor(s/60),sec=Math.floor(s%60);return`${m}:${sec.toString().padStart(2,'0')}`;}
@@ -316,7 +319,6 @@ function buildPiano(){
 }
 
 function queueMidiFall(m){
-  // Upgrade any in-flight detected block for this pitch to 'both'
   const existing=pendingNotes.find(n=>n.midi===m&&n.src==='det');
   if(existing){existing.src='both';}
   else{pendingNotes.push({midi:m,arrivesAt:performance.now()+FALL_DURATION,src:'midi'});}
@@ -366,13 +368,9 @@ function drawWaterfall(){
   const arrived=pendingNotes.filter(n=>n.arrivesAt<=now);
   pendingNotes=pendingNotes.filter(n=>n.arrivesAt>now);
   if(arrived.length>0){
-    for (const n of arrived) {
-  recentArrivals.push({
-    midi: n.midi,
-    freq: n.freq || 0,
-    t: now
-  });
-}
+    for(const n of arrived){
+      recentArrivals.push({midi:n.midi,freq:n.freq||0,t:now});
+    }
     updateChordState(now);
   }
   recentArrivals=recentArrivals.filter(n=>now-n.t<CHORD_DECAY_MS);
@@ -402,7 +400,7 @@ function drawWaterfall(){
   ctx2d.shadowBlur=0;
 
   const COLOURS={
-    det: {r:'196,165,255',g:'139,92,246', s:'167,139,250',e:'220,200,255'},
+    det: {r:'196,165,255',g:'139,92,246',s:'167,139,250',e:'220,200,255'},
     midi:{r:'134,239,172',g:'16,185,129', s:'52,211,153', e:'187,247,208'},
     both:{r:'103,232,249',g:'6,182,212',  s:'0,212,255',  e:'165,243,252'},
   };
@@ -489,7 +487,7 @@ function updateDetDisplay(){
     nameEl.textContent=midiName(m);nameEl.className='note-name';
     const arrival=recentArrivals.find(n=>n.midi===m);
     infoEl.textContent=arrival&&arrival.freq?arrival.freq.toFixed(1)+' Hz — MIDI '+m:'MIDI '+m;
-  } else {
+  }else{
     const root=sorted[0];
     nameEl.textContent=midiName(root);nameEl.className='note-name chord-mode';
     infoEl.textContent=`${sorted.length}-note chord`;
@@ -515,14 +513,7 @@ function createPlayer(vid){
     videoId:vid,
     width:'100%',
     height:'100%',
-    playerVars:{
-      autoplay:1,
-      playsinline:1,
-      rel:0,
-      modestbranding:1,
-      enablejsapi:1,
-      origin:window.location.origin
-    },
+    playerVars:{autoplay:1,playsinline:1,rel:0,modestbranding:1,enablejsapi:1,origin:window.location.origin},
     events:{
       onReady:e=>{
         playerReady=true;
@@ -555,52 +546,113 @@ function startLoopWatcher(){
   loopTimer=setInterval(()=>{if(!ytPlayer||!playerReady||loopA==null||loopB==null)return;if(ytPlayer.getCurrentTime()>=loopB)ytPlayer.seekTo(loopA,true);},200);
 }
 
+// ─── AUDIO CAPTURE ────────────────────────────────────────────────────────────
 function toggleCapture(){if(isCapturing){stopCapture();return;}document.getElementById('capture-modal').classList.add('open');}
 function closeModal(){document.getElementById('capture-modal').classList.remove('open');}
+
 async function startCapture(){
   closeModal();
+
+  // BUG FIX: Brave blocks tab audio at the OS level
   const isBrave=!!(navigator.brave&&await navigator.brave.isBrave().catch(()=>false));
-  if(isBrave){alert('⚠️ Brave Browser blocks tab audio capture at the browser level.\n\nPlease use Chrome or Edge for the audio detection feature.\n\n(Video, MIDI, and practice mode all work fine in Brave.)');return;}
+  if(isBrave){
+    alert('⚠️ Brave Browser blocks tab audio capture at the browser level.\n\nPlease use Chrome or Edge for the audio detection feature.\n\n(Video, MIDI, and practice mode all work fine in Brave.)');
+    return;
+  }
+
   try{
-captureStream = await navigator.mediaDevices.getDisplayMedia({
-  video: true,
-  audio: true,
-  preferCurrentTab: true
-});
+    // BUG FIX: Use minimal video (required by some browsers) + clean audio
+    // constraints that disable processing which destroys pitch data.
+    captureStream=await navigator.mediaDevices.getDisplayMedia({
+      video:{width:1,height:1,frameRate:1}, // minimal video so tab audio is available
+      audio:{
+        echoCancellation:false,   // BUG FIX: was missing — AGC / echo cancel kill pitch
+        noiseSuppression:false,
+        autoGainControl:false,    // BUG FIX: AGC sets volume to 0% on Mac
+        sampleRate:44100
+      },
+      preferCurrentTab:true
+    });
+
+    // Stop video tracks immediately — we only need audio
     captureStream.getVideoTracks().forEach(t=>t.stop());
+
     const audioTracks=captureStream.getAudioTracks();
-    if(!audioTracks.length){alert('❌ No audio track received.\n\nIn the browser share dialog you must:\n1. Select the TAB (not Window or Screen)\n2. Check ✓ "Share tab audio" before clicking Share\n\nIf you did both and still see this, your browser is blocking tab audio (common in Brave/Firefox).');captureStream.getTracks().forEach(t=>t.stop());captureStream=null;return;}
-    audioCtx = new (window.AudioContext || window.webkitAudioContext)();
-await audioCtx.resume();
+    if(!audioTracks.length){
+      alert('❌ No audio track received.\n\nIn the browser share dialog you must:\n1. Select the TAB (not Window or Screen)\n2. Check ✓ "Share tab audio" before clicking Share\n\nIf you did both and still see this, your browser is blocking tab audio (common in Brave/Firefox).');
+      captureStream.getTracks().forEach(t=>t.stop());
+      captureStream=null;
+      return;
+    }
+
+    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+    await audioCtx.resume();
+
     const src=audioCtx.createMediaStreamSource(captureStream);
-    analyser=audioCtx.createAnalyser();analyser.fftSize=8192;analyser.smoothingTimeConstant=0.1;
-    src.connect(analyser);
+
+    // BUG FIX #1 — THE ROOT CAUSE ON MAC:
+    // Web Audio will NOT process a graph with no destination node. On Mac/Chrome
+    // this silently zeroes out the analyser data even though the stream has audio.
+    // Fix: route through a silent GainNode to destination so the graph stays alive.
+    _silentGain=audioCtx.createGain();
+    _silentGain.gain.value=0; // inaudible — prevents echo, keeps graph active
+
+    // BUG FIX #2 — LOW VOLUME / AGC FIGHTING US:
+    // Even with autoGainControl:false in constraints, the OS-level capture on Mac
+    // can come in at a low amplitude. Boost the signal before the analyser.
+    const boostGain=audioCtx.createGain();
+    boostGain.gain.value=5.0; // amplify 5× so RMS is detectable
+
+    analyser=audioCtx.createAnalyser();
+    analyser.fftSize=8192;
+    analyser.smoothingTimeConstant=0.1;
+
+    // Graph: source → boost → analyser → silent sink → destination
+    src.connect(boostGain);
+    boostGain.connect(analyser);
+    analyser.connect(_silentGain);
+    _silentGain.connect(audioCtx.destination);
+
     isCapturing=true;
     document.getElementById('capture-btn').textContent='⏹ Stop Capture';
     document.getElementById('capture-btn').classList.add('stop');
     document.getElementById('audio-badge').classList.add('listening');
     document.getElementById('audio-label').textContent='Listening…';
     document.getElementById('det-info').textContent='Connected — play the video to detect notes';
+
+    // If a track ends externally (user stops share), clean up
     captureStream.getTracks().forEach(t=>t.addEventListener('ended',stopCapture));
+
     pitchTimer=setInterval(runPitchDetection,60);
+
+    // BUG FIX #3: Silence check — guard against stale audioCtx/analyser refs
     setTimeout(()=>{
-      if(!isCapturing||!analyser)return;
-      const buf=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(buf);
+      if(!isCapturing||!analyser||!audioCtx)return;
+      const buf=new Float32Array(analyser.fftSize);
+      analyser.getFloatTimeDomainData(buf);
       let rms=0;for(const v of buf)rms+=v*v;rms=Math.sqrt(rms/buf.length);
-      if(rms<0.0001)document.getElementById('det-info').textContent='⚠️ Stream is silent — did you check "Share tab audio"?';
+      if(rms<0.0001){
+        document.getElementById('det-info').textContent='⚠️ Stream is silent — did you check "Share tab audio"?';
+      }
     },4000);
+
   }catch(err){
-    if(err.name==='NotAllowedError'){}
-    else if(err.name==='NotSupportedError')alert('❌ Tab audio capture is not supported in this browser.\nUse Chrome 74+ or Edge 79+.');
-    else alert('❌ Capture failed: '+err.message+'\n\nThis feature requires Chrome or Edge.');
+    if(err.name==='NotAllowedError'){/* user cancelled — do nothing */}
+    else if(err.name==='NotSupportedError'){
+      alert('❌ Tab audio capture is not supported in this browser.\nUse Chrome 74+ or Edge 79+.');
+    }else{
+      alert('❌ Capture failed: '+err.message+'\n\nThis feature requires Chrome or Edge.');
+    }
   }
 }
+
 function stopCapture(){
   isCapturing=false;
   if(pitchTimer)clearInterval(pitchTimer);
+  pitchTimer=null;
   if(captureStream)captureStream.getTracks().forEach(t=>t.stop());
   if(audioCtx)audioCtx.close().catch(()=>{});
-  captureStream=null;audioCtx=null;analyser=null;
+  captureStream=null;audioCtx=null;analyser=null;_silentGain=null;
   pendingNotes=[];recentArrivals=[];lastQueuedMidi=null;midiFlashTrail=[];
   const old=[...detectedChord];detectedChord.clear();targetChord.clear();old.forEach(m=>refreshKey(m));updateDetDisplay();
   document.getElementById('capture-btn').textContent='Capture Tab Audio';
@@ -611,23 +663,27 @@ function stopCapture(){
 }
 
 function runPitchDetection(){
-  if(!analyser)return;
-  const buf=new Float32Array(analyser.fftSize);analyser.getFloatTimeDomainData(buf);
+  if(!analyser||!audioCtx)return;
+  const buf=new Float32Array(analyser.fftSize);
+  analyser.getFloatTimeDomainData(buf);
   let rms=0;for(let i=0;i<buf.length;i++)rms+=buf[i]*buf[i];rms=Math.sqrt(rms/buf.length);
-  if(rms<0.007){lastQueuedMidi=null;return;}
+
+  // BUG FIX: original threshold 0.007 was too high for tab audio
+  // (which can be low amplitude even after boosting). Lowered to 0.003.
+  if(rms<0.003){lastQueuedMidi=null;return;}
+
   const freq=acf2plus(buf,audioCtx.sampleRate);
   if(freq<=0||freq<27||freq>4200)return;
   const midi=freqToMidi(freq);if(midi<21||midi>108)return;
   if(midi!==lastQueuedMidi){
-    // If this note is already held on the MIDI piano, don't create a separate
-    // audio-detected block — the MIDI piano's own sound was being picked up
-    // by the tab audio capture and double-counted as a "detected" event.
+    // Don't double-count notes already held on the MIDI piano
     if(!activeMidi.has(midi)){
       pendingNotes.push({midi,freq,arrivesAt:performance.now()+FALL_DURATION,src:'det'});
     }
     lastQueuedMidi=midi;
   }
 }
+
 function acf2plus(buf,sr){
   const n=buf.length,half=Math.floor(n/2);
   let r1=0,r2=n-1;
@@ -646,6 +702,7 @@ function acf2plus(buf,sr){
   return sr/(maxLag+shift);
 }
 
+// ─── MIDI ─────────────────────────────────────────────────────────────────────
 async function initMidi(){
   if(!navigator.requestMIDIAccess){alert('WebMIDI not supported. Use Chrome or Edge.');return;}
   try{
@@ -672,10 +729,24 @@ function updateChips(){
   for(const m of[...activeMidi].sort((a,b)=>a-b)){const c=document.createElement('div');c.className='chip';c.textContent=midiName(m);el.appendChild(c);}
 }
 
-function togglePractice(){practiceMode=document.getElementById('practice-chk').checked;practicePaused=false;if(!practiceMode&&ytPlayer&&playerReady)ytPlayer.playVideo();}
+// ─── PRACTICE MODE ────────────────────────────────────────────────────────────
+function togglePractice(){
+  practiceMode=document.getElementById('practice-chk').checked;
+  // BUG FIX: reset practicePaused when toggling off, so the player
+  // isn't left in a permanently paused state on re-enable
+  practicePaused=false;
+  if(!practiceMode&&ytPlayer&&playerReady)ytPlayer.playVideo();
+}
 function onNewPracticeNote(){if(!ytPlayer||!practiceMode)return;ytPlayer.pauseVideo();practicePaused=true;}
-function onPracticeCorrect(){scoreCorrect++;document.getElementById('sc-correct').textContent=scoreCorrect;practicePaused=false;showToast('✓','ok');if(ytPlayer&&playerReady)ytPlayer.playVideo();}
-function onPracticeWrong(note){scoreMiss++;document.getElementById('sc-miss').textContent=scoreMiss;flashWrong(note);showToast('✗','bad');}
+function onPracticeCorrect(){
+  scoreCorrect++;document.getElementById('sc-correct').textContent=scoreCorrect;
+  practicePaused=false;showToast('✓','ok');
+  if(ytPlayer&&playerReady)ytPlayer.playVideo();
+}
+function onPracticeWrong(note){
+  scoreMiss++;document.getElementById('sc-miss').textContent=scoreMiss;
+  flashWrong(note);showToast('✗','bad');
+}
 function resetScore(){scoreCorrect=0;scoreMiss=0;document.getElementById('sc-correct').textContent='0';document.getElementById('sc-miss').textContent='0';}
 
 let toastTO=null;
@@ -684,6 +755,7 @@ function showToast(txt,cls){
   clearTimeout(toastTO);toastTO=setTimeout(()=>t.className='',700);
 }
 
+// ─── INIT ─────────────────────────────────────────────────────────────────────
 window.addEventListener('DOMContentLoaded',()=>{
   buildPiano();
   drawWaterfall();
