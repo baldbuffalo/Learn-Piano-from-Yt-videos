@@ -887,13 +887,26 @@ function scanFallingNotes(){
   const counts=new Uint16Array(sw),bottoms=new Int16Array(sw);bottoms.fill(-1);
   // Saturated, bright pixels are a useful baseline for the coloured note bars
   // used by many falling-note tutorials; UI text is excluded by the player crop.
+  const isNoteColour=(x,y)=>{
+    const p=(y*sw+x)*4,r=pixels[p],g=pixels[p+1],b=pixels[p+2];
+    const max=Math.max(r,g,b),min=Math.min(r,g,b);
+    return max>120&&max-min>58&&min<125;
+  };
+  // Count only small, bright coloured runs per row. Ignoring very wide runs
+  // helps reject saturated backgrounds, borders, and full-width UI elements.
+  const maxRunWidth=Math.max(10,Math.floor(sw*0.12));
   for(let y=startY;y<endY;y+=2){
-    for(let x=0;x<sw;x+=2){
-      const p=(y*sw+x)*4,r=pixels[p],g=pixels[p+1],b=pixels[p+2];
-      const max=Math.max(r,g,b),min=Math.min(r,g,b);
-      if(max>92&&max-min>48){
-        counts[x]++;counts[Math.min(sw-1,x+1)]++;
-        bottoms[x]=y;bottoms[Math.min(sw-1,x+1)]=y;
+    let x=0;
+    while(x<sw){
+      if(!isNoteColour(x,y)){x++;continue;}
+      const left=x;
+      while(x<sw&&isNoteColour(x,y))x++;
+      const right=x-1,width=right-left+1;
+      if(width>=2&&width<=maxRunWidth){
+        for(let col=left;col<=right;col++){
+          counts[col]++;
+          bottoms[col]=y;
+        }
       }
     }
   }
