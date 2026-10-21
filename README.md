@@ -8,7 +8,9 @@ A lightweight, single-page piano practice tool. Paste a YouTube video URL, slow 
 - A/B looping for repeating difficult sections
 - On-screen piano keyboard covering MIDI notes 36–96
 - Optional tab-audio capture with basic pitch detection and a falling-note visualizer
-- Web MIDI input, key highlighting, and a simple pause-and-practise mode
+- Experimental visual detection for coloured falling-note bars in Synthesia-style videos, with adjustable low/high pitch range
+- Web MIDI input plus selectable MIDI output for sending detected notes to a connected synthesizer or virtual instrument
+- Key highlighting and a simple pause-and-practise mode
 - Keyboard shortcuts: `Space` play/pause, `←` / `→` seek 5 seconds, `A` set loop start, `B` set loop end
 - Responsive layout for desktop, tablet, and mobile screens
 
@@ -21,9 +23,11 @@ For audio capture and Web MIDI, use a browser that supports the relevant APIs an
 ## Limitations
 
 - The app uses YouTube's embedded player, so private, unavailable, age-restricted, or embedding-restricted videos may not play.
-- Audio detection estimates pitch from the captured audio. It works best with clear, isolated notes; full chords, dense arrangements, drums, and other instruments can confuse the detector. It is a practice aid, not a reliable audio-to-MIDI transcription system.
-- MIDI input requires a compatible device and browser permission. Some mobile browsers do not support Web MIDI.
-- The practice mode compares MIDI key presses with notes detected from the audio; it does not know the intended score or guarantee that a performance is musically correct.
+- Visual falling-note recognition is experimental and heuristic-based. It works best with clearly visible, brightly coloured note bars; it can misread video UI, unusual palettes, perspective, or lane layouts. The low/high pitch settings approximate the range across the video width and may need adjustment. It is not guaranteed to identify every note correctly.
+- Visual recognition uses the captured tab's video frames and needs browser screen/tab-capture permission. Some browsers or operating systems may not expose usable frames or tab audio.
+- Audio detection estimates a dominant pitch from captured audio. It works best with clear, isolated notes; chords, dense arrangements, drums, and other instruments can confuse it.
+- MIDI input/output requires browser Web MIDI support, permission, and compatible connected devices. Selecting MIDI output sends note events to that device; MIDI output does not itself guarantee audible sound unless the device or a software synthesizer produces it.
+- Practice mode compares key presses with detected notes; it does not know the intended score or guarantee a musically correct transcription.
 
 ## Privacy
 
