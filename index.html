@@ -390,7 +390,7 @@ function finishNoteHold(m){
   const now=performance.now();
   for(const n of pendingNotes){
     if(n.midi===m&&n.holdStartedAt!=null&&n.releasedAt==null){
-      n.heldMs=Math.max(0,now-n.holdStartedAt);n.releasedAt=now;
+      n.heldMs=Math.max(0,now-n.holdStartedAt);n.releasedAt=now;n.keepUntil=now+900;
     }
   }
 }
@@ -436,8 +436,11 @@ function drawWaterfall(){
   const lineY=0;
   const fallTo=H;
 
-  const arrived=pendingNotes.filter(n=>n.arrivesAt<=now);
-  pendingNotes=pendingNotes.filter(n=>n.arrivesAt>now);
+  // Keep live MIDI notes in the render list after their immediate arrival.
+  // Otherwise the arrival cleanup removes them before the hold animation can grow.
+  const isHeldMidiNote=n=>(n.src==='midi'||n.src==='both')&&n.holdStartedAt!=null&&n.releasedAt==null;
+  const arrived=pendingNotes.filter(n=>n.arrivesAt<=now&&!isHeldMidiNote(n));
+  pendingNotes=pendingNotes.filter(n=>n.arrivesAt>now||isHeldMidiNote(n)||(n.keepUntil!=null&&now<n.keepUntil));
   if(arrived.length>0){
     for(const n of arrived){
       recentArrivals.push({midi:n.midi,freq:n.freq||0,t:now});
