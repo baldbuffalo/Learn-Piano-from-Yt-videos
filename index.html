@@ -240,9 +240,25 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
       </div>
     </div>
     <div class="card">
-      <div class="card-title">🎹 MIDI Input</div>
-      <button class="ghost-btn" id="midi-btn" onclick="initMidi()">Connect Piano</button>
+      <div class="card-title">🎹 MIDI Devices</div>
+      <button class="ghost-btn" id="midi-btn" onclick="initMidi()">Connect MIDI Devices</button>
+      <div class="toggle-row" style="margin-top:9px">
+        <span>Play detected notes to MIDI out</span>
+        <label class="toggle"><input type="checkbox" id="midi-out-chk"><div class="ttrack"></div></label>
+      </div>
+      <label for="midi-output" style="display:block;font-size:.72rem;color:var(--muted);margin:8px 0 4px">MIDI output device</label>
+      <select id="midi-output" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px;font:inherit;font-size:.78rem" disabled>
+        <option value="">Connect devices first</option>
+      </select>
+      <div style="font-size:.7rem;color:var(--muted);line-height:1.5;margin-top:7px">Output sends detected falling notes to a MIDI synthesizer/device. It does not play sound by itself.</div>
       <div class="midi-chips" id="midi-chips"></div>
+    </div>
+    <div class="card">
+      <div class="card-title">🎼 Falling-note detection</div>
+      <div style="font-size:.75rem;color:var(--muted);line-height:1.5;margin-bottom:8px">Start Audio capture, share this browser tab, and play a Synthesia-style video. The detector estimates note pitches from coloured falling bars.</div>
+      <div class="toggle-row"><label for="vision-low">Leftmost note</label><select id="vision-low" onchange="setVisionRange()" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px"><option value="24">C1</option><option value="36" selected>C2</option><option value="48">C3</option><option value="60">C4</option></select></div>
+      <div class="toggle-row"><label for="vision-high">Rightmost note</label><select id="vision-high" onchange="setVisionRange()" style="background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:5px;padding:4px"><option value="72">C5</option><option value="84">C6</option><option value="96" selected>C7</option><option value="108">C8</option></select></div>
+      <div style="font-size:.68rem;color:var(--muted);line-height:1.45">Pitch mapping is approximate and assumes note lanes span the selected range evenly. Detection depends on video colours and layout.</div>
     </div>
     <div class="card">
       <div class="card-title">🎮 Practice Mode</div>
@@ -305,7 +321,10 @@ let ytPlayer=null,playerReady=false,isPlaying=false;
 let loopA=null,loopB=null,loopTimer=null,ytAPIReady=false;
 let audioCtx=null,analyser=null,captureStream=null;
 let pitchTimer=null,isCapturing=false;
-let midiAccess=null,midiConnected=false,activeMidi=new Set();
+let midiAccess=null,midiConnected=false,activeMidi=new Set(),midiOutput=null;
+let visionVideo=null,visionCanvas=null,visionCtx=null,visionTimer=null;
+let visualActive=new Set(),visualMissing=new Map(),lastVisionTrigger=new Map();
+let visionLowMidi=36,visionHighMidi=96;
 let FALL_DURATION=1400;
 let pendingNotes=[],lastQueuedMidi=null,recentArrivals=[],detectedChord=new Set(),midiFlashTrail=[];
 let practiceMode=false,practicePaused=false,scoreCorrect=0,scoreMiss=0,targetChord=new Set();
@@ -402,6 +421,7 @@ function drawWaterfall(){
   if(arrived.length>0){
     for(const n of arrived){
       recentArrivals.push({midi:n.midi,freq:n.freq||0,t:now});
+      if(n.src==='vision') playMidiOutputNote(n.midi, 96, Math.max(120, Math.min(900, FALL_DURATION*0.45)));
     }
     updateChordState(now);
   }
@@ -650,21 +670,23 @@ async function startCapture(){
       preferCurrentTab:true
     });
 
-    // Stop video tracks immediately — we only need audio
-    captureStream.getVideoTracks().forEach(t=>t.stop());
-
+    // Keep the captured video track for visual falling-note recognition.
+    // Audio is optional: users can run visual recognition even if the browser
+    // cannot provide a tab-audio track.
     const audioTracks=captureStream.getAudioTracks();
-    if(!audioTracks.length){
-      alert('❌ No audio track received.\n\nIn the browser share dialog you must:\n1. Select the TAB (not Window or Screen)\n2. Check ✓ "Share tab audio" before clicking Share\n\nIf you did both and still see this, your browser is blocking tab audio (common in Brave/Firefox).');
+    const videoTracks=captureStream.getVideoTracks();
+    if(!videoTracks.length){
+      alert('No video track was shared. Choose a browser tab or screen and try again.');
       captureStream.getTracks().forEach(t=>t.stop());
       captureStream=null;
       return;
     }
+    setupVisionCapture(videoTracks[0]);
 
-    audioCtx=new (window.AudioContext||window.webkitAudioContext)();
-    await audioCtx.resume();
-
-    const src=audioCtx.createMediaStreamSource(captureStream);
+    if(audioTracks.length){
+      audioCtx=new (window.AudioContext||window.webkitAudioContext)();
+      await audioCtx.resume();
+      const src=audioCtx.createMediaStreamSource(new MediaStream(audioTracks));
 
     // BUG FIX #1 — THE ROOT CAUSE ON MAC:
     // Web Audio will NOT process a graph with no destination node. On Mac/Chrome
@@ -683,32 +705,34 @@ async function startCapture(){
     analyser.fftSize=8192;
     analyser.smoothingTimeConstant=0.1;
 
-    // Graph: source → boost → analyser → silent sink → destination
-    src.connect(boostGain);
-    boostGain.connect(analyser);
-    analyser.connect(_silentGain);
-    _silentGain.connect(audioCtx.destination);
+      // Graph: source → boost → analyser → silent sink → destination
+      src.connect(boostGain);
+      boostGain.connect(analyser);
+      analyser.connect(_silentGain);
+      _silentGain.connect(audioCtx.destination);
+    }
 
     isCapturing=true;
     document.getElementById('capture-btn').textContent='⏹ Stop Capture';
     document.getElementById('capture-btn').classList.add('stop');
     document.getElementById('audio-badge').classList.add('listening');
     document.getElementById('audio-label').textContent='Listening…';
-    document.getElementById('det-info').textContent='Connected — play the video to detect notes';
+    document.getElementById('det-info').textContent=audioTracks.length
+      ? 'Audio + visual capture active — play the video to detect notes'
+      : 'Visual capture active; tab audio unavailable';
 
     // If a track ends externally (user stops share), clean up
     captureStream.getTracks().forEach(t=>t.addEventListener('ended',stopCapture));
+    if(analyser) pitchTimer=setInterval(runPitchDetection,60);
 
-    pitchTimer=setInterval(runPitchDetection,60);
-
-    // BUG FIX #3: Silence check — guard against stale audioCtx/analyser refs
+    // Report silent audio only when an audio analyser actually exists.
     setTimeout(()=>{
       if(!isCapturing||!analyser||!audioCtx)return;
       const buf=new Float32Array(analyser.fftSize);
       analyser.getFloatTimeDomainData(buf);
       let rms=0;for(const v of buf)rms+=v*v;rms=Math.sqrt(rms/buf.length);
       if(rms<0.0001){
-        document.getElementById('det-info').textContent='⚠️ Stream is silent — did you check "Share tab audio"?';
+        document.getElementById('det-info').textContent='Audio is silent; visual falling-note recognition can still work.';
       }
     },4000);
 
@@ -726,9 +750,14 @@ function stopCapture(){
   isCapturing=false;
   if(pitchTimer)clearInterval(pitchTimer);
   pitchTimer=null;
+  if(pitchTimer)clearInterval(pitchTimer);
+  if(visionTimer)clearInterval(visionTimer);
+  visionTimer=null;
   if(captureStream)captureStream.getTracks().forEach(t=>t.stop());
   if(audioCtx)audioCtx.close().catch(()=>{});
+  if(visionVideo){visionVideo.pause();visionVideo.srcObject=null;}
   captureStream=null;audioCtx=null;analyser=null;_silentGain=null;
+  visualActive.clear();visualMissing.clear();
   pendingNotes=[];recentArrivals=[];lastQueuedMidi=null;midiFlashTrail=[];
   const old=[...detectedChord];detectedChord.clear();targetChord.clear();old.forEach(m=>refreshKey(m));updateDetDisplay();
   document.getElementById('capture-btn').textContent='Capture Tab Audio';
@@ -736,6 +765,7 @@ function stopCapture(){
   document.getElementById('audio-badge').classList.remove('listening');
   document.getElementById('audio-label').textContent='Audio';
   document.getElementById('chord-chips').innerHTML='';
+  document.getElementById('det-info').textContent='Capture stopped';
 }
 
 function runPitchDetection(){
@@ -787,9 +817,29 @@ async function initMidi(){
     const btn=document.getElementById('midi-btn');btn.textContent='✓ Piano Connected';btn.classList.add('on');
     document.getElementById('midi-badge').classList.add('active');
     document.getElementById('midi-label').textContent='MIDI';
+    document.getElementById('midi-btn').textContent='✓ MIDI Devices Connected';
   }catch(e){alert('MIDI access denied.\n'+e.message);}
 }
-function hookMidiInputs(){if(!midiAccess)return;for(const input of midiAccess.inputs.values())input.onmidimessage=onMidi;}
+function hookMidiInputs(){
+  if(!midiAccess)return;
+  for(const input of midiAccess.inputs.values())input.onmidimessage=onMidi;
+  const select=document.getElementById('midi-output');
+  const previous=select.value;
+  select.innerHTML='';
+  const outputs=[...midiAccess.outputs.values()];
+  if(!outputs.length){
+    select.add(new Option('No MIDI output devices found',''));
+    select.disabled=true;midiOutput=null;
+  }else{
+    select.add(new Option('Select a MIDI output…',''));
+    for(const output of outputs)select.add(new Option(output.name||'MIDI output',output.id));
+    select.disabled=false;
+    if(outputs.some(o=>o.id===previous))select.value=previous;
+    else select.value='';
+    midiOutput=outputs.find(o=>o.id===select.value)||null;
+  }
+  select.onchange=()=>{midiOutput=outputs.find(o=>o.id===select.value)||null;};
+}
 function onMidi(e){
   const[st,note,vel]=e.data;const cmd=st&0xf0;
   if(cmd===0x90&&vel>0){
@@ -803,6 +853,105 @@ function onMidi(e){
 function updateChips(){
   const el=document.getElementById('midi-chips');el.innerHTML='';
   for(const m of[...activeMidi].sort((a,b)=>a-b)){const c=document.createElement('div');c.className='chip';c.textContent=midiName(m);el.appendChild(c);}
+}
+
+// ─── VIDEO FALLING-NOTE RECOGNITION ──────────────────────────────────────────
+// This is a browser-side visual heuristic for Synthesia-style falling-note videos.
+// It reads the shared tab's captured pixels, crops to the embedded player, finds
+// saturated note-bar columns, and maps their horizontal positions to a configurable
+// MIDI range. Videos with unusual colours/layouts may need range calibration.
+function setupVisionCapture(track){
+  if(visionTimer)clearInterval(visionTimer);
+  if(!visionVideo){
+    visionVideo=document.createElement('video');
+    visionVideo.muted=true;visionVideo.autoplay=true;visionVideo.playsInline=true;
+    visionVideo.style.cssText='position:fixed;width:2px;height:2px;left:-10px;top:-10px;opacity:0;pointer-events:none';
+    document.body.appendChild(visionVideo);
+    visionCanvas=document.createElement('canvas');
+    visionCtx=visionCanvas.getContext('2d',{willReadFrequently:true});
+  }
+  visionVideo.srcObject=new MediaStream([track]);
+  visionVideo.play().then(()=>{
+    visionTimer=setInterval(scanFallingNotes,90);
+  }).catch(()=>{
+    document.getElementById('det-info').textContent='Visual capture is active, but the browser did not expose video frames.';
+  });
+}
+function scanFallingNotes(){
+  if(!visionVideo||!visionVideo.videoWidth||!visionVideo.videoHeight)return;
+  const player=document.getElementById('yt-player');
+  const rect=player.getBoundingClientRect();
+  if(rect.width<20||rect.height<20)return;
+  const vw=visionVideo.videoWidth,vh=visionVideo.videoHeight;
+  const scaleX=vw/Math.max(1,window.innerWidth),scaleY=vh/Math.max(1,window.innerHeight);
+  const sx=Math.max(0,Math.floor(rect.left*scaleX)),sy=Math.max(0,Math.floor(rect.top*scaleY));
+  const sw=Math.min(vw-sx,Math.floor(rect.width*scaleX)),sh=Math.min(vh-sy,Math.floor(rect.height*scaleY));
+  if(sw<30||sh<30)return;
+  visionCanvas.width=sw;visionCanvas.height=sh;
+  try{visionCtx.drawImage(visionVideo,sx,sy,sw,sh,0,0,sw,sh);}catch{return;}
+  let pixels;
+  try{pixels=visionCtx.getImageData(0,0,sw,sh).data;}catch{return;}
+  const startY=Math.floor(sh*0.10),endY=Math.floor(sh*0.97);
+  const counts=new Uint16Array(sw),bottoms=new Int16Array(sw);bottoms.fill(-1);
+  // Saturated, bright pixels are a useful baseline for the coloured note bars
+  // used by many falling-note tutorials; UI text is excluded by the player crop.
+  for(let y=startY;y<endY;y+=2){
+    for(let x=0;x<sw;x+=2){
+      const p=(y*sw+x)*4,r=pixels[p],g=pixels[p+1],b=pixels[p+2];
+      const max=Math.max(r,g,b),min=Math.min(r,g,b);
+      if(max>92&&max-min>48){
+        counts[x]++;counts[Math.min(sw-1,x+1)]++;
+        bottoms[x]=y;bottoms[Math.min(sw-1,x+1)]=y;
+      }
+    }
+  }
+  const now=performance.now(),seen=new Set();
+  let x=0;
+  while(x<sw){
+    if(counts[x]<3){x++;continue;}
+    const left=x;let right=x,maxY=-1,total=0;
+    while(x<sw&&counts[x]>=3){right=x;maxY=Math.max(maxY,bottoms[x]);total+=counts[x];x++;}
+    const width=right-left+1;
+    if(width<2||total<8||maxY<sh*0.30)continue;
+    const center=(left+right)/2;
+    const midi=Math.round(visionLowMidi+(center/Math.max(1,sw-1))*(visionHighMidi-visionLowMidi));
+    if(midi<21||midi>108)continue;
+    seen.add(midi);
+    if(!visualActive.has(midi)){
+      const progress=Math.max(0,Math.min(1,maxY/sh));
+      const delay=Math.max(0,(0.94-progress)*FALL_DURATION);
+      pendingNotes.push({midi,arrivesAt:now+delay,src:'vision',freq:0});
+      lastVisionTrigger.set(midi,now);
+    }
+    visualMissing.set(midi,0);
+  }
+  for(const midi of [...visualActive]){
+    if(seen.has(midi))continue;
+    const missing=(visualMissing.get(midi)||0)+1;
+    visualMissing.set(midi,missing);
+    if(missing>=2){visualActive.delete(midi);visualMissing.delete(midi);}
+  }
+  for(const midi of seen)visualActive.add(midi);
+}
+function setVisionRange(){
+  visionLowMidi=+(document.getElementById('vision-low').value||36);
+  visionHighMidi=+(document.getElementById('vision-high').value||96);
+  if(visionHighMidi<=visionLowMidi){
+    visionHighMidi=Math.min(108,visionLowMidi+12);
+    document.getElementById('vision-high').value=String(visionHighMidi);
+  }
+  showToast(midiName(visionLowMidi)+'–'+midiName(visionHighMidi),'ok');
+}
+function playMidiOutputNote(note,velocity=96,duration=300){
+  if(!document.getElementById('midi-out-chk')?.checked)return;
+  if(!midiOutput){document.getElementById('det-info').textContent='Select a MIDI output device to play detected notes.';return;}
+  const now=performance.now();
+  try{
+    midiOutput.send([0x90,note,velocity],now);
+    midiOutput.send([0x80,note,0],now+duration);
+  }catch(e){
+    document.getElementById('det-info').textContent='MIDI output failed: '+e.message;
+  }
 }
 
 // ─── PRACTICE MODE ────────────────────────────────────────────────────────────
