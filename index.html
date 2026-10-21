@@ -227,7 +227,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
     </div>
     <div class="card">
       <div class="card-title">🎧 Audio Detection</div>
-      <button class="capture-btn" id="capture-btn" onclick="toggleCapture()">Capture Tab Audio</button>
+      <button class="capture-btn" id="capture-btn" onclick="toggleCapture()">Capture Video + Audio</button>
       <div class="note-display">
         <div class="note-name dim" id="det-name">—</div>
         <div class="note-info" id="det-info">No audio captured</div>
@@ -295,16 +295,16 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 <div id="toast"></div>
 <div id="capture-modal">
   <div class="modal-box">
-    <h3>🎧 Capture Tab Audio</h3>
+    <h3>🎥 Share this tab to detect notes</h3>
     <ol>
-      <li>Click <strong>Share</strong> in the browser dialog</li>
-      <li>Select the <strong>Tab</strong> option (not Window or Screen)</li>
-      <li>Check <strong>"Share tab audio"</strong> ✓</li>
-      <li>Click <strong>Share</strong> to confirm</li>
+      <li>Keep this PianoTutor page open with your YouTube video loaded.</li>
+      <li>Click <strong>Start Capture</strong>, then choose <strong>This Tab</strong> in the browser picker.</li>
+      <li>Enable <strong>Share tab audio</strong> if the option appears (visual note detection works without audio).</li>
+      <li>Click <strong>Share</strong>. You stay on this site while the video plays.</li>
     </ol>
-    <p style="margin-top:12px;font-size:.8rem;color:var(--muted)">⚠️ Works best in Chrome / Edge. Notes appear on the waterfall and land on your keyboard.</p>
+    <p style="margin-top:12px;font-size:.8rem;color:var(--muted)">Use Chrome or Edge. Keep the falling notes visible in the YouTube player; detected notes should appear on the waterfall.</p>
     <div class="modal-actions">
-      <button class="load-btn" onclick="startCapture()">Got it — Start Capture</button>
+      <button class="load-btn" onclick="startCapture()">Start Capture</button>
       <button class="modal-cancel" onclick="closeModal()">Cancel</button>
     </div>
   </div>
@@ -752,7 +752,7 @@ function stopCapture(){
   visualActive.clear();visualMissing.clear();
   pendingNotes=[];recentArrivals=[];lastQueuedMidi=null;midiFlashTrail=[];
   const old=[...detectedChord];detectedChord.clear();targetChord.clear();old.forEach(m=>refreshKey(m));updateDetDisplay();
-  document.getElementById('capture-btn').textContent='Capture Tab Audio';
+  document.getElementById('capture-btn').textContent='Capture Video + Audio';
   document.getElementById('capture-btn').classList.remove('stop');
   document.getElementById('audio-badge').classList.remove('listening');
   document.getElementById('audio-label').textContent='Audio';
