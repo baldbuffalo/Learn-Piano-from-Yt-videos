@@ -649,18 +649,11 @@ function closeModal(){document.getElementById('capture-modal').classList.remove(
 async function startCapture(){
   closeModal();
 
-  // BUG FIX: Brave blocks tab audio at the OS level
-  const isBrave=!!(navigator.brave&&await navigator.brave.isBrave().catch(()=>false));
-  if(isBrave){
-    alert('⚠️ Brave Browser blocks tab audio capture at the browser level.\n\nPlease use Chrome or Edge for the audio detection feature.\n\n(Video, MIDI, and practice mode all work fine in Brave.)');
-    return;
-  }
-
   try{
-    // BUG FIX: Use minimal video (required by some browsers) + clean audio
-    // constraints that disable processing which destroys pitch data.
+    // Request enough captured pixels for visual note-bar recognition while
+    // keeping the capture frame rate modest. These are ideals, not exact values.
     captureStream=await navigator.mediaDevices.getDisplayMedia({
-      video:{width:1,height:1,frameRate:1}, // minimal video so tab audio is available
+      video:{width:{ideal:1280},height:{ideal:720},frameRate:{ideal:10,max:15}},
       audio:{
         echoCancellation:false,   // BUG FIX: was missing — AGC / echo cancel kill pitch
         noiseSuppression:false,
@@ -750,7 +743,6 @@ function stopCapture(){
   isCapturing=false;
   if(pitchTimer)clearInterval(pitchTimer);
   pitchTimer=null;
-  if(pitchTimer)clearInterval(pitchTimer);
   if(visionTimer)clearInterval(visionTimer);
   visionTimer=null;
   if(captureStream)captureStream.getTracks().forEach(t=>t.stop());
