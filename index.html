@@ -374,8 +374,17 @@ function buildPiano(){
 function queueMidiFall(m){
   const now=performance.now();
   const existing=pendingNotes.find(n=>n.midi===m&&n.src==='det');
-  if(existing){existing.src='both';existing.holdStartedAt=now;existing.heldMs=0;existing.releasedAt=null;}
-  else{pendingNotes.push({midi:m,arrivesAt:now+FALL_DURATION,src:'midi',holdStartedAt:now,heldMs:0,releasedAt:null});}
+  if(existing){
+    existing.src='both';
+    existing.holdStartedAt=now;
+    existing.heldMs=0;
+    existing.releasedAt=null;
+    existing.arrivesAt=now;
+  }else{
+    // A played piano note starts at the keyboard immediately; it must not wait
+    // for the visual tutorial's falling-note travel time.
+    pendingNotes.push({midi:m,arrivesAt:now,src:'midi',holdStartedAt:now,heldMs:0,releasedAt:null});
+  }
 }
 function finishNoteHold(m){
   const now=performance.now();
@@ -468,19 +477,20 @@ function drawWaterfall(){
     both:{r:'103,232,249',g:'6,182,212',  s:'0,212,255',  e:'165,243,252'},
   };
   for(const n of pendingNotes){
+    const isLiveKeyNote=n.src==='midi'||(n.src==='both'&&n.holdStartedAt!=null);
     const timeLeft=n.arrivesAt-now;
-    const progress=Math.max(0,1-timeLeft/FALL_DURATION);
+    const progress=isLiveKeyNote?1:Math.max(0,1-timeLeft/FALL_DURATION);
     const isB=BLACK_PCS.has(n.midi%12);
     const heldMs=n.releasedAt!=null?n.heldMs:(n.holdStartedAt!=null?now-n.holdStartedAt:0);
-    // Video note length is estimated from the actual detected bar height; MIDI length follows key hold.
-    const targetHeight=n.durationMs!=null?(14+n.durationMs*0.055):(14+heldMs*0.055);
-    // No easing: easing makes detected notes visibly trail behind the source video.
+    // Played notes grow continuously upward from the keyboard while held.
+    // Video-detected notes retain the position and length read from the source.
+    const targetHeight=isLiveKeyNote?(14+heldMs*0.12):(n.durationMs!=null?(14+n.durationMs*0.055):14);
     n.renderHeight=targetHeight;
     const bw=isB?BW-2:WW-5;
     const bh=Math.max(14,Math.min(Math.max(14,fallTo*0.70),n.renderHeight));
     const baseX=keyXPos[n.midi];if(baseX==null)continue;
     const x=baseX-scrollLeft+PIANO_SCROLL_PADDING;
-    const y=LINE_H+progress*(fallTo-LINE_H)-bh;
+    const y=isLiveKeyNote?fallTo-bh:(LINE_H+progress*(fallTo-LINE_H)-bh);
     const alpha=0.45+progress*0.55;
     const c=COLOURS[n.src]||COLOURS.det;
     const grad=ctx2d.createLinearGradient(0,y,0,y+bh);
