@@ -15,7 +15,7 @@ for (const feature of [
   'function setVisionRange()',
   'function extractVideoId('
 ]) {
-  assert.ok(html.includes(feature), \`Missing expected feature: \${feature}\`);
+  assert.ok(html.includes(feature), 'Missing expected feature: ' + feature);
 }
 
 console.log('HTML inline JavaScript syntax and feature checks passed.');
