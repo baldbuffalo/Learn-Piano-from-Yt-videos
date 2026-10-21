@@ -474,7 +474,8 @@ function drawWaterfall(){
     const heldMs=n.releasedAt!=null?n.heldMs:(n.holdStartedAt!=null?now-n.holdStartedAt:0);
     // Video note length is estimated from the actual detected bar height; MIDI length follows key hold.
     const targetHeight=n.durationMs!=null?(14+n.durationMs*0.055):(14+heldMs*0.055);
-    n.renderHeight=n.renderHeight==null?targetHeight:n.renderHeight+(targetHeight-n.renderHeight)*0.22;
+    // No easing: easing makes detected notes visibly trail behind the source video.
+    n.renderHeight=targetHeight;
     const bw=isB?BW-2:WW-5;
     const bh=Math.max(14,Math.min(Math.max(14,fallTo*0.70),n.renderHeight));
     const baseX=keyXPos[n.midi];if(baseX==null)continue;
@@ -669,7 +670,8 @@ async function startCapture(){
     // Request enough captured pixels for visual note-bar recognition while
     // keeping the capture frame rate modest. These are ideals, not exact values.
     captureStream=await navigator.mediaDevices.getDisplayMedia({
-      video:{width:{ideal:1280},height:{ideal:720},frameRate:{ideal:10,max:15}},
+      video:{width:{ideal:1920},height:{ideal:1080},frameRate:{ideal:30,max:60}},
+      // Prefer the browser's native capture cadence; do not throttle visual notes to ~11 fps.
       audio:{
         echoCancellation:false,   // BUG FIX: was missing — AGC / echo cancel kill pitch
         noiseSuppression:false,
@@ -920,7 +922,14 @@ function setupVisionCapture(track){
   }
   visionVideo.srcObject=new MediaStream([track]);
   visionVideo.play().then(()=>{
-    visionTimer=setInterval(scanFallingNotes,90);
+    const scanFrame=()=>{
+      if(!visionVideo||visionVideo.srcObject==null)return;
+      scanFallingNotes();
+      if(typeof visionVideo.requestVideoFrameCallback==='function')visionVideo.requestVideoFrameCallback(scanFrame);
+      else requestAnimationFrame(scanFrame);
+    };
+    if(typeof visionVideo.requestVideoFrameCallback==='function')visionVideo.requestVideoFrameCallback(scanFrame);
+    else requestAnimationFrame(scanFrame);
   }).catch(()=>{
     document.getElementById('det-info').textContent='Visual capture is active, but the browser did not expose video frames.';
   });
