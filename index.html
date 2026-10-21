@@ -472,12 +472,14 @@ function drawWaterfall(){
     const progress=Math.max(0,1-timeLeft/FALL_DURATION);
     const isB=BLACK_PCS.has(n.midi%12);
     const heldMs=n.releasedAt!=null?n.heldMs:(n.holdStartedAt!=null?now-n.holdStartedAt:0);
-    // Held MIDI keys draw longer falling bars; cap length to preserve the view.
+    // Video note length is estimated from the actual detected bar height; MIDI length follows key hold.
+    const targetHeight=n.durationMs!=null?(14+n.durationMs*0.055):(14+heldMs*0.055);
+    n.renderHeight=n.renderHeight==null?targetHeight:n.renderHeight+(targetHeight-n.renderHeight)*0.22;
     const bw=isB?BW-2:WW-5;
-    const bh=Math.max(14,Math.min(Math.max(14,fallTo*0.45),14+heldMs*0.055));
+    const bh=Math.max(14,Math.min(Math.max(14,fallTo*0.70),n.renderHeight));
     const baseX=keyXPos[n.midi];if(baseX==null)continue;
     const x=baseX-scrollLeft+PIANO_SCROLL_PADDING;
-    const y=LINE_H+progress*(fallTo-LINE_H-bh);
+    const y=LINE_H+progress*(fallTo-LINE_H)-bh;
     const alpha=0.45+progress*0.55;
     const c=COLOURS[n.src]||COLOURS.det;
     const grad=ctx2d.createLinearGradient(0,y,0,y+bh);
@@ -938,7 +940,7 @@ function scanFallingNotes(){
   let pixels;
   try{pixels=visionCtx.getImageData(0,0,sw,sh).data;}catch{return;}
   const startY=Math.floor(sh*0.10),endY=Math.floor(sh*0.97);
-  const counts=new Uint16Array(sw),bottoms=new Int16Array(sw);bottoms.fill(-1);
+  const counts=new Uint16Array(sw),bottoms=new Int16Array(sw),tops=new Int16Array(sw);bottoms.fill(-1);tops.fill(sh);
   // Saturated, bright pixels are a useful baseline for the coloured note bars
   // used by many falling-note tutorials; UI text is excluded by the player crop.
   const isNoteColour=(x,y)=>{
@@ -960,6 +962,7 @@ function scanFallingNotes(){
         for(let col=left;col<=right;col++){
           counts[col]++;
           bottoms[col]=y;
+          tops[col]=Math.min(tops[col],y);
         }
       }
     }
@@ -968,8 +971,8 @@ function scanFallingNotes(){
   let x=0;
   while(x<sw){
     if(counts[x]<3){x++;continue;}
-    const left=x;let right=x,maxY=-1,total=0;
-    while(x<sw&&counts[x]>=3){right=x;maxY=Math.max(maxY,bottoms[x]);total+=counts[x];x++;}
+    const left=x;let right=x,maxY=-1,minY=sh,total=0;
+    while(x<sw&&counts[x]>=3){right=x;maxY=Math.max(maxY,bottoms[x]);minY=Math.min(minY,tops[x]);total+=counts[x];x++;}
     const width=right-left+1;
     if(width<2||total<8||maxY<sh*0.30)continue;
     const center=(left+right)/2;
@@ -979,7 +982,11 @@ function scanFallingNotes(){
     if(!visualActive.has(midi)){
       const progress=Math.max(0,Math.min(1,maxY/sh));
       const delay=Math.max(0,(0.94-progress)*FALL_DURATION);
-      pendingNotes.push({midi,arrivesAt:now+delay,src:'vision',freq:0});
+      const detectedHeight=Math.max(4,maxY-minY);
+      // In falling-note tutorials, the visible note's vertical length encodes its sustain.
+      // Convert the detected bar height into a duration, then render it with rounded animation.
+      const durationMs=Math.max(100,Math.min(8000,(detectedHeight/sh)*FALL_DURATION*2.6));
+      pendingNotes.push({midi,arrivesAt:now+delay,src:'vision',freq:0,durationMs,barHeight:detectedHeight});
       lastVisionTrigger.set(midi,now);
     }
     visualMissing.set(midi,0);
