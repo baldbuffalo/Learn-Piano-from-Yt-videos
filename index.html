@@ -242,6 +242,7 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
     <div class="card">
       <div class="card-title">🎹 MIDI Devices</div>
       <button class="ghost-btn" id="midi-btn" onclick="initMidi()">Connect MIDI Devices</button>
+      <div id="midi-status" role="status" aria-live="polite" style="font-size:.72rem;line-height:1.5;color:var(--muted);margin-top:8px">Not connected. Click Connect MIDI Devices and approve the browser's MIDI permission prompt if it appears.</div>
       <div class="toggle-row" style="margin-top:9px">
         <span>Play detected notes to MIDI out</span>
         <label class="toggle"><input type="checkbox" id="midi-out-chk"><div class="ttrack"></div></label>
@@ -250,7 +251,8 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
       <select id="midi-output" style="width:100%;background:var(--bg2);color:var(--text);border:1px solid var(--border);border-radius:6px;padding:7px;font:inherit;font-size:.78rem" disabled>
         <option value="">Connect devices first</option>
       </select>
-      <div style="font-size:.7rem;color:var(--muted);line-height:1.5;margin-top:7px">Output sends detected falling notes to a MIDI synthesizer/device. It does not play sound by itself.</div>
+      <button class="ghost-btn" id="midi-test-btn" onclick="testMidiOutput()" style="margin-top:7px" disabled>Test MIDI Output</button>
+      <div style="font-size:.7rem;color:var(--muted);line-height:1.5;margin-top:7px">Your piano's USB/Bluetooth MIDI input is for playing notes into the app. MIDI output is only needed if you want the app to play notes back through a device or synthesizer.</div>
       <div class="midi-chips" id="midi-chips"></div>
     </div>
     <div class="card">
@@ -802,23 +804,38 @@ function acf2plus(buf,sr){
 
 // ─── MIDI ─────────────────────────────────────────────────────────────────────
 async function initMidi(){
-  if(!navigator.requestMIDIAccess){alert('WebMIDI not supported. Use Chrome or Edge.');return;}
+  const status=document.getElementById('midi-status');
+  const btn=document.getElementById('midi-btn');
+  if(!navigator.requestMIDIAccess){
+    status.textContent='Web MIDI is unavailable in this browser or context. Try the latest Chrome or Edge on HTTPS.';
+    showToast('Web MIDI unavailable','bad');
+    return;
+  }
+  btn.disabled=true;
+  status.textContent='Requesting MIDI access… approve the browser permission prompt if one appears.';
   try{
     midiAccess=await navigator.requestMIDIAccess({sysex:false});
-    hookMidiInputs();midiAccess.onstatechange=hookMidiInputs;midiConnected=true;
-    const btn=document.getElementById('midi-btn');btn.textContent='✓ Piano Connected';btn.classList.add('on');
+    midiAccess.onstatechange=hookMidiInputs;
+    midiConnected=true;
+    hookMidiInputs();
+    btn.textContent='✓ Refresh MIDI Devices';
+    btn.classList.add('on');
     document.getElementById('midi-badge').classList.add('active');
     document.getElementById('midi-label').textContent='MIDI';
-    document.getElementById('midi-btn').textContent='✓ MIDI Devices Connected';
-  }catch(e){alert('MIDI access denied.\n'+e.message);}
+    showToast('MIDI access granted','ok');
+  }catch(e){
+    status.textContent='MIDI access failed: '+(e.message||e.name)+'. Check this site’s browser permissions and reconnect the piano.';
+    showToast('MIDI access denied','bad');
+  }finally{btn.disabled=false;}
 }
 function hookMidiInputs(){
   if(!midiAccess)return;
-  for(const input of midiAccess.inputs.values())input.onmidimessage=onMidi;
+  const inputs=[...midiAccess.inputs.values()];
+  for(const input of inputs)input.onmidimessage=onMidi;
   const select=document.getElementById('midi-output');
   const previous=select.value;
-  select.innerHTML='';
   const outputs=[...midiAccess.outputs.values()];
+  select.innerHTML='';
   if(!outputs.length){
     select.add(new Option('No MIDI output devices found',''));
     select.disabled=true;midiOutput=null;
@@ -827,10 +844,35 @@ function hookMidiInputs(){
     for(const output of outputs)select.add(new Option(output.name||'MIDI output',output.id));
     select.disabled=false;
     if(outputs.some(o=>o.id===previous))select.value=previous;
+    else if(outputs.length===1)select.value=outputs[0].id;
     else select.value='';
     midiOutput=outputs.find(o=>o.id===select.value)||null;
   }
-  select.onchange=()=>{midiOutput=outputs.find(o=>o.id===select.value)||null;};
+  select.onchange=()=>{
+    midiOutput=outputs.find(o=>o.id===select.value)||null;
+    document.getElementById('midi-test-btn').disabled=!midiOutput;
+    if(midiOutput)document.getElementById('midi-status').textContent='Connected: '+inputs.length+' MIDI input(s), '+outputs.length+' MIDI output(s). Selected output: '+(midiOutput.name||'MIDI output')+'.';
+  };
+  document.getElementById('midi-test-btn').disabled=!midiOutput;
+  const inputNames=inputs.map(i=>i.name||'MIDI input');
+  const outputNames=outputs.map(o=>o.name||'MIDI output');
+  let msg='MIDI access granted — '+inputs.length+' input(s), '+outputs.length+' output(s). ';
+  msg+=inputs.length?'Input: '+inputNames.join(', ')+'. ':'No MIDI input detected. Check the cable, piano MIDI/USB mode, and browser device permissions. ';
+  msg+=outputs.length?'Output: '+outputNames.join(', ')+'.':'No MIDI output exposed. Some digital pianos are input-only; to hear notes from the app, select a software synthesizer or a device with MIDI output.';
+  document.getElementById('midi-status').textContent=msg;
+  document.getElementById('midi-test-btn').disabled=!midiOutput;
+}
+function testMidiOutput(){
+  if(!midiOutput){showToast('Select a MIDI output first','bad');return;}
+  try{
+    const now=performance.now(),note=60;
+    midiOutput.send([0x90,note,90],now);
+    midiOutput.send([0x80,note,0],now+450);
+    showToast('Sent test note C4','ok');
+    document.getElementById('midi-status').textContent='Test note C4 sent to '+(midiOutput.name||'selected MIDI output')+'. If silent, check the output device or connected synthesizer.';
+  }catch(e){
+    document.getElementById('midi-status').textContent='MIDI test failed: '+e.message;
+  }
 }
 function onMidi(e){
   const[st,note,vel]=e.data;const cmd=st&0xf0;
