@@ -372,12 +372,21 @@ function buildPiano(){
 }
 
 function queueMidiFall(m){
+  const now=performance.now();
   const existing=pendingNotes.find(n=>n.midi===m&&n.src==='det');
-  if(existing){existing.src='both';}
-  else{pendingNotes.push({midi:m,arrivesAt:performance.now()+FALL_DURATION,src:'midi'});}
+  if(existing){existing.src='both';existing.holdStartedAt=now;existing.heldMs=0;existing.releasedAt=null;}
+  else{pendingNotes.push({midi:m,arrivesAt:now+FALL_DURATION,src:'midi',holdStartedAt:now,heldMs:0,releasedAt:null});}
+}
+function finishNoteHold(m){
+  const now=performance.now();
+  for(const n of pendingNotes){
+    if(n.midi===m&&n.holdStartedAt!=null&&n.releasedAt==null){
+      n.heldMs=Math.max(0,now-n.holdStartedAt);n.releasedAt=now;
+    }
+  }
 }
 function clickNoteOn(m){activeMidi.add(m);queueMidiFall(m);midiFlashTrail.push({midi:m,t:performance.now()});refreshKey(m);updateChips();}
-function clickNoteOff(m){activeMidi.delete(m);refreshKey(m);updateChips();}
+function clickNoteOff(m){finishNoteHold(m);activeMidi.delete(m);refreshKey(m);updateChips();}
 
 function refreshKey(m){
   const el=keyEls[m];if(!el)return;
@@ -462,7 +471,10 @@ function drawWaterfall(){
     const timeLeft=n.arrivesAt-now;
     const progress=Math.max(0,1-timeLeft/FALL_DURATION);
     const isB=BLACK_PCS.has(n.midi%12);
-    const bw=isB?BW-2:WW-5,bh=14;
+    const heldMs=n.releasedAt!=null?n.heldMs:(n.holdStartedAt!=null?now-n.holdStartedAt:0);
+    // Held MIDI keys draw longer falling bars; cap length to preserve the view.
+    const bw=isB?BW-2:WW-5;
+    const bh=Math.max(14,Math.min(Math.max(14,fallTo*0.45),14+heldMs*0.055));
     const baseX=keyXPos[n.midi];if(baseX==null)continue;
     const x=baseX-scrollLeft+PIANO_SCROLL_PADDING;
     const y=LINE_H+progress*(fallTo-LINE_H-bh);
@@ -882,7 +894,7 @@ function onMidi(e){
       if(targetChord.has(note)){const allPressed=[...targetChord].every(m=>activeMidi.has(m));if(allPressed)onPracticeCorrect();}
       else onPracticeWrong(note);
     }
-  }else if(cmd===0x80||(cmd===0x90&&vel===0)){activeMidi.delete(note);refreshKey(note);updateChips();}
+  }else if(cmd===0x80||(cmd===0x90&&vel===0)){finishNoteHold(note);activeMidi.delete(note);refreshKey(note);updateChips();}
 }
 function updateChips(){
   const el=document.getElementById('midi-chips');el.innerHTML='';
