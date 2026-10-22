@@ -300,11 +300,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
     id="virtual-piano-frame"
     src="https://app.midiano.com/"
     title="Midiano"
-    allow="autoplay; fullscreen; clipboard-read; clipboard-write"
-    allowfullscreen
+    allow="autoplay; fullscreen; midi; clipboard-read; clipboard-write"
     referrerpolicy="strict-origin-when-cross-origin">
   </iframe>
-  <p class="virtual-piano-message">If the frame says “refused to connect,” Midiano is blocking embedding from its side. The new-tab link above is the fallback; this page cannot override the site's framing policy.</p>
+  <p class="virtual-piano-message">If MIDI access is unavailable or Midiano reports an origin issue, open it in a new tab. Browser support and Midiano’s own origin checks may still limit features inside an embedded frame.</p>
   <div id="piano-wrap" aria-hidden="true"></div>
 </div>
 </div>
