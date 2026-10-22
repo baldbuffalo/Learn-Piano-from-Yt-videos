@@ -100,10 +100,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .wf-speed-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .wf-speed-val{font-family:var(--mono);font-size:.72rem;color:var(--purple);min-width:28px;text-align:right}
 .piano-section{flex-shrink:0;background:linear-gradient(180deg,var(--surf) 0%,var(--bg2) 100%);border-top:1px solid var(--border);padding:10px 0 8px;}
-.piano-scroll{overflow-x:auto;padding:0 12px 4px;scrollbar-width:thin;scrollbar-color:var(--surf2) transparent;}
-.piano-scroll::-webkit-scrollbar{height:3px}
-.piano-scroll::-webkit-scrollbar-thumb{background:var(--surf2);border-radius:2px}
-#piano-wrap{position:relative;display:inline-block}
+.virtual-piano-section{display:flex;flex-direction:column;min-height:300px;}
+.virtual-piano-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 12px 8px;font-size:.85rem;color:var(--muted);}
+.virtual-piano-heading a{color:var(--purple);text-decoration:none;}
+#virtual-piano-frame{display:block;width:100%;height:340px;border:0;background:#17181a;border-radius:8px;}
+#piano-wrap{position:absolute;width:0;height:0;overflow:hidden;visibility:hidden;pointer-events:none;}
 .wkey{position:absolute;bottom:0;width:var(--wkey-w);height:var(--wkey-h);background:linear-gradient(180deg,#e8eaf6 0%,#ffffff 60%);border:1px solid #b0b4cc;border-top:none;border-radius:0 0 5px 5px;cursor:pointer;transition:background .07s;z-index:1;}
 .wkey:hover{background:linear-gradient(180deg,#d0d4f0 0%,#f0f0ff 60%)}
 .bkey{position:absolute;top:0;width:var(--bkey-w);height:var(--bkey-h);background:linear-gradient(180deg,#1e1e30 0%,#0a0a18 100%);border-radius:0 0 4px 4px;cursor:pointer;z-index:3;transition:background .07s;}
@@ -288,10 +289,13 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
     </div>
   </div>
 </div>
-<div class="piano-section">
-  <div class="piano-scroll">
-    <div id="piano-wrap"></div>
+<div class="piano-section virtual-piano-section">
+  <div class="virtual-piano-heading">
+    <span>Virtual Piano</span>
+    <a href="https://virtualpiano.io/" target="_blank" rel="noopener noreferrer">Open Virtual Piano in a new tab ↗</a>
   </div>
+  <iframe id="virtual-piano-frame" src="https://virtualpiano.io/" title="VirtualPiano.io playable piano" loading="lazy" allow="autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  <div id="piano-wrap" aria-hidden="true"></div>
 </div>
 </div>
 <div id="toast"></div>
