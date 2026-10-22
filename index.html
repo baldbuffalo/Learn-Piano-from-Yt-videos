@@ -100,10 +100,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .wf-speed-row{display:flex;align-items:center;gap:8px;margin-top:8px}
 .wf-speed-val{font-family:var(--mono);font-size:.72rem;color:var(--purple);min-width:28px;text-align:right}
 .piano-section{flex-shrink:0;background:linear-gradient(180deg,var(--surf) 0%,var(--bg2) 100%);border-top:1px solid var(--border);padding:10px 0 8px;}
-.virtual-piano-section{display:flex;flex-direction:column;min-height:300px;}
-.virtual-piano-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:0 12px 8px;font-size:.85rem;color:var(--muted);}
-.virtual-piano-heading a{color:var(--purple);text-decoration:none;}
-#virtual-piano-frame{display:block;width:100%;height:340px;border:0;background:#17181a;border-radius:8px;}
+.virtual-piano-section{display:flex;flex-direction:column;gap:12px;min-height:180px;padding:16px;background:linear-gradient(180deg,var(--surf) 0%,var(--bg2) 100%);}
+.virtual-piano-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.85rem;color:var(--muted);}
+.virtual-piano-heading a{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:7px;background:var(--purple-dim);border:1px solid rgba(167,139,250,.4);color:var(--purple);text-decoration:none;font-weight:700;}
+.virtual-piano-heading a:hover{background:rgba(167,139,250,.28);}
+.virtual-piano-message{font-size:.82rem;line-height:1.6;color:var(--muted);max-width:760px;}
 #piano-wrap{position:absolute;width:0;height:0;overflow:hidden;visibility:hidden;pointer-events:none;}
 .wkey{position:absolute;bottom:0;width:var(--wkey-w);height:var(--wkey-h);background:linear-gradient(180deg,#e8eaf6 0%,#ffffff 60%);border:1px solid #b0b4cc;border-top:none;border-radius:0 0 5px 5px;cursor:pointer;transition:background .07s;z-index:1;}
 .wkey:hover{background:linear-gradient(180deg,#d0d4f0 0%,#f0f0ff 60%)}
@@ -292,9 +293,9 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 <div class="piano-section virtual-piano-section">
   <div class="virtual-piano-heading">
     <span>Virtual Piano</span>
-    <a href="https://virtualpiano.io/" target="_blank" rel="noopener noreferrer">Open Virtual Piano in a new tab ↗</a>
+    <a href="https://virtualpiano.io/" target="_blank" rel="noopener noreferrer">Open Virtual Piano ↗</a>
   </div>
-  <iframe id="virtual-piano-frame" src="https://virtualpiano.io/" title="VirtualPiano.io playable piano" loading="lazy" allow="autoplay; fullscreen" referrerpolicy="strict-origin-when-cross-origin"></iframe>
+  <p class="virtual-piano-message">VirtualPiano.io blocks being displayed inside other websites, so it has to open in its own tab. PianoTutor's YouTube note detection and waterfall remain here; opening Virtual Piano separately does not automatically connect its keys to the video.</p>
   <div id="piano-wrap" aria-hidden="true"></div>
 </div>
 </div>
