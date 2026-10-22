@@ -416,7 +416,14 @@ function flashWrong(m){
 
 const canvas=document.getElementById('trail-canvas');
 const ctx2d=canvas.getContext('2d');
-function syncCanvasSize(){canvas.width=canvas.offsetWidth;canvas.height=canvas.offsetHeight;}
+function syncCanvasSize(){
+  // Assigning canvas dimensions clears and recreates its drawing buffer. Only
+  // do that when the element actually changes size, not on every animation frame.
+  const width=Math.max(1,Math.round(canvas.offsetWidth));
+  const height=Math.max(1,Math.round(canvas.offsetHeight));
+  if(canvas.width!==width)canvas.width=width;
+  if(canvas.height!==height)canvas.height=height;
+}
 
 function setFallDuration(ms){
   FALL_DURATION=ms;
@@ -485,15 +492,18 @@ function drawWaterfall(){
     const progress=isLiveKeyNote?1:Math.max(0,1-timeLeft/FALL_DURATION);
     const isB=BLACK_PCS.has(n.midi%12);
     const heldMs=n.releasedAt!=null?n.heldMs:(n.holdStartedAt!=null?now-n.holdStartedAt:0);
-    // Played notes grow continuously upward from the keyboard while held.
-    // Video-detected notes retain the position and length read from the source.
-    const targetHeight=isLiveKeyNote?(14+heldMs*0.12):(n.durationMs!=null?(14+n.durationMs*0.055):14);
+    // Played notes start at the keyboard immediately. Their upper edge grows
+    // smoothly while the key is held, then freezes at the exact released length.
+    // The animation strip is short, so use a slower growth rate and let the bar
+    // use the full strip instead of hitting the old 70% cap almost immediately.
+    const targetHeight=isLiveKeyNote?(14+heldMs*0.04):(n.durationMs!=null?(14+n.durationMs*0.055):14);
     n.renderHeight=targetHeight;
     const bw=isB?BW-2:WW-5;
-    const bh=Math.max(14,Math.min(Math.max(14,fallTo*0.70),n.renderHeight));
+    const maxVisibleHeight=Math.max(14,fallTo-LINE_H);
+    const bh=Math.max(14,Math.min(maxVisibleHeight,n.renderHeight));
     const baseX=keyXPos[n.midi];if(baseX==null)continue;
     const x=baseX-scrollLeft+PIANO_SCROLL_PADDING;
-    const y=isLiveKeyNote?fallTo-bh:(LINE_H+progress*(fallTo-LINE_H)-bh);
+    const y=isLiveKeyNote?Math.max(LINE_H,fallTo-bh):(LINE_H+progress*(fallTo-LINE_H)-bh);
     const alpha=0.45+progress*0.55;
     const c=COLOURS[n.src]||COLOURS.det;
     const grad=ctx2d.createLinearGradient(0,y,0,y+bh);
