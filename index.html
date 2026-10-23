@@ -300,10 +300,10 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
     id="virtual-piano-frame"
     src="https://app.midiano.com/"
     title="Midiano virtual piano"
-    allow="autoplay; fullscreen; midi; midi-sysex; clipboard-read; clipboard-write"
+    allow="autoplay; fullscreen; midi; clipboard-read; clipboard-write"
     referrerpolicy="origin">
   </iframe>
-  <p class="virtual-piano-message">The piano remains embedded here. If “Origin couldn't be validated” appears when pressing keys, this is being emitted by Midiano's own script; PianoTutor cannot directly edit that cross-origin script. The iframe permissions and referrer are configured explicitly for the embedded app.</p>
+  <p class="virtual-piano-message">The piano remains embedded here. The browser does not recognize the midi-sysex iframe permission token, so it has been removed. If “Origin couldn't be validated” continues when pressing keys, Midiano is rejecting an origin check inside its own cross-origin app; this parent page cannot change that check. The iframe remains available, with MIDI and standard permissions enabled.</p>
   <div id="piano-wrap" aria-hidden="true"></div>
 </div>
 </div>
