@@ -804,7 +804,7 @@ function stopCapture(){
   if(audioCtx)audioCtx.close().catch(()=>{});
   if(visionVideo){visionVideo.pause();visionVideo.srcObject=null;}
   captureStream=null;audioCtx=null;analyser=null;_silentGain=null;
-  visualActive.clear();visualMissing.clear();
+  visualActive.clear();visualMissing.clear();visionTracks.clear();lastVisionTrigger.clear();
   pendingNotes=[];recentArrivals=[];lastQueuedMidi=null;midiFlashTrail=[];
   const old=[...detectedChord];detectedChord.clear();targetChord.clear();old.forEach(m=>refreshKey(m));updateDetDisplay();
   document.getElementById('capture-btn').textContent='Capture Video + Audio';
