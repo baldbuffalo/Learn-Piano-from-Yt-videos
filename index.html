@@ -102,6 +102,11 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 .piano-section{flex-shrink:0;background:linear-gradient(180deg,var(--surf) 0%,var(--bg2) 100%);border-top:1px solid var(--border);padding:10px 0 8px;}
 .virtual-piano-section{display:flex;flex-direction:column;gap:12px;min-height:260px;padding:16px;background:linear-gradient(180deg,var(--surf) 0%,var(--bg2) 100%);}
 #virtual-piano-frame{display:block;width:100%;height:340px;min-height:240px;border:1px solid var(--border2);border-radius:8px;background:#fff;}
+.midiano-launch-panel{display:flex;flex-direction:column;align-items:center;justify-content:center;gap:12px;min-height:240px;padding:28px;text-align:center;border:1px solid var(--border2);border-radius:8px;background:radial-gradient(circle at top,rgba(167,139,250,.12),transparent 65%),var(--bg2);}
+.midiano-launch-panel strong{font-size:1.05rem;color:var(--text);}
+.midiano-launch-panel p{max-width:650px;}
+.midiano-launch-button{display:inline-flex;align-items:center;justify-content:center;padding:10px 16px;border-radius:7px;background:var(--purple-dim);border:1px solid rgba(167,139,250,.4);color:var(--purple);text-decoration:none;font-weight:700;}
+.midiano-launch-button:hover{background:rgba(167,139,250,.28);}
 .virtual-piano-heading{display:flex;align-items:center;justify-content:space-between;gap:12px;font-size:.85rem;color:var(--muted);}
 .virtual-piano-heading a{display:inline-flex;align-items:center;justify-content:center;gap:8px;padding:10px 14px;border-radius:7px;background:var(--purple-dim);border:1px solid rgba(167,139,250,.4);color:var(--purple);text-decoration:none;font-weight:700;}
 .virtual-piano-heading a:hover{background:rgba(167,139,250,.28);}
@@ -293,17 +298,15 @@ input[type=range]::-webkit-slider-thumb{-webkit-appearance:none;width:14px;heigh
 </div>
 <div class="piano-section virtual-piano-section">
   <div class="virtual-piano-heading">
-    <span>Midiano · Embedded attempt</span>
-    <a href="https://app.midiano.com/" target="_blank" rel="noopener noreferrer">Open in new tab ↗</a>
+    <span>🎹 Virtual Piano · Midiano</span>
+    <a href="https://app.midiano.com/" target="_blank" rel="noopener noreferrer">Launch Midiano ↗</a>
   </div>
-  <iframe
-    id="virtual-piano-frame"
-    src="https://app.midiano.com/"
-    title="Midiano"
-    allow="autoplay; fullscreen; midi; clipboard-read; clipboard-write"
-    referrerpolicy="strict-origin-when-cross-origin">
-  </iframe>
-  <p class="virtual-piano-message">If MIDI access is unavailable or Midiano reports an origin issue, open it in a new tab. Browser support and Midiano’s own origin checks may still limit features inside an embedded frame.</p>
+  <div class="midiano-launch-panel">
+    <div style="font-size:2.5rem;line-height:1">🎹</div>
+    <strong>Open Midiano in its own tab</strong>
+    <p class="virtual-piano-message">Midiano reports “Origin couldn't be validated” when its app is embedded on another website. That check is performed by Midiano itself, so PianoTutor cannot repair it from inside an iframe. Launching the official app directly gives it its own origin and lets you grant MIDI access there.</p>
+    <a class="midiano-launch-button" href="https://app.midiano.com/" target="_blank" rel="noopener noreferrer">Open official Midiano ↗</a>
+  </div>
   <div id="piano-wrap" aria-hidden="true"></div>
 </div>
 </div>
