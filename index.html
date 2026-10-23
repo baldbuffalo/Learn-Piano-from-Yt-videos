@@ -339,6 +339,7 @@ let pitchTimer=null,isCapturing=false;
 let midiAccess=null,midiConnected=false,activeMidi=new Set(),midiOutput=null;
 let visionVideo=null,visionCanvas=null,visionCtx=null,visionTimer=null;
 let visualActive=new Set(),visualMissing=new Map(),lastVisionTrigger=new Map();
+let visionTracks=new Map(),visionTrackId=0;
 let visionLowMidi=36,visionHighMidi=96;
 let FALL_DURATION=1400;
 let pendingNotes=[],lastQueuedMidi=null,recentArrivals=[],detectedChord=new Set(),midiFlashTrail=[];
@@ -975,74 +976,93 @@ function scanFallingNotes(){
   const player=document.getElementById('yt-player');
   const rect=player.getBoundingClientRect();
   if(rect.width<20||rect.height<20)return;
+
+  // Crop the captured tab to the YouTube player, then downsample before scanning
+  // so visual recognition stays responsive on ordinary laptops.
   const vw=visionVideo.videoWidth,vh=visionVideo.videoHeight;
   const scaleX=vw/Math.max(1,window.innerWidth),scaleY=vh/Math.max(1,window.innerHeight);
   const sx=Math.max(0,Math.floor(rect.left*scaleX)),sy=Math.max(0,Math.floor(rect.top*scaleY));
   const sw=Math.min(vw-sx,Math.floor(rect.width*scaleX)),sh=Math.min(vh-sy,Math.floor(rect.height*scaleY));
   if(sw<30||sh<30)return;
-  visionCanvas.width=sw;visionCanvas.height=sh;
-  try{visionCtx.drawImage(visionVideo,sx,sy,sw,sh,0,0,sw,sh);}catch{return;}
+  const factor=Math.min(1,640/sw);
+  const w=Math.max(1,Math.floor(sw*factor)),h=Math.max(1,Math.floor(sh*factor));
+  visionCanvas.width=w;visionCanvas.height=h;
+  try{visionCtx.drawImage(visionVideo,sx,sy,sw,sh,0,0,w,h);}catch{return;}
   let pixels;
-  try{pixels=visionCtx.getImageData(0,0,sw,sh).data;}catch{return;}
-  const startY=Math.floor(sh*0.10),endY=Math.floor(sh*0.97);
-  const counts=new Uint16Array(sw),bottoms=new Int16Array(sw),tops=new Int16Array(sw);bottoms.fill(-1);tops.fill(sh);
-  // Saturated, bright pixels are a useful baseline for the coloured note bars
-  // used by many falling-note tutorials; UI text is excluded by the player crop.
-  const isNoteColour=(x,y)=>{
-    const p=(y*sw+x)*4,r=pixels[p],g=pixels[p+1],b=pixels[p+2];
-    const max=Math.max(r,g,b),min=Math.min(r,g,b);
-    return max>120&&max-min>58&&min<125;
-  };
-  // Count only small, bright coloured runs per row. Ignoring very wide runs
-  // helps reject saturated backgrounds, borders, and full-width UI elements.
-  const maxRunWidth=Math.max(10,Math.floor(sw*0.12));
-  for(let y=startY;y<endY;y+=2){
-    let x=0;
-    while(x<sw){
-      if(!isNoteColour(x,y)){x++;continue;}
-      const left=x;
-      while(x<sw&&isNoteColour(x,y))x++;
-      const right=x-1,width=right-left+1;
-      if(width>=2&&width<=maxRunWidth){
-        for(let col=left;col<=right;col++){
-          counts[col]++;
-          bottoms[col]=y;
-          tops[col]=Math.min(tops[col],y);
+  try{pixels=visionCtx.getImageData(0,0,w,h).data;}catch{return;}
+
+  // Build a mask of saturated note-bar colours. Connected components let us
+  // distinguish two notes in the same lane instead of merging their whole column.
+  const mask=new Uint8Array(w*h),visited=new Uint8Array(w*h);
+  for(let y=Math.floor(h*.04);y<Math.floor(h*.98);y++){
+    for(let x=0;x<w;x++){
+      const p=(y*w+x)*4,r=pixels[p],g=pixels[p+1],b=pixels[p+2];
+      const max=Math.max(r,g,b),min=Math.min(r,g,b);
+      if(max>105&&max-min>38&&min<165)mask[y*w+x]=1;
+    }
+  }
+  const components=[];
+  const stack=[];
+  const maxBarWidth=Math.max(10,Math.floor(w*.12));
+  for(let y=Math.floor(h*.04);y<Math.floor(h*.98);y++){
+    for(let x=0;x<w;x++){
+      const seed=y*w+x;
+      if(!mask[seed]||visited[seed])continue;
+      visited[seed]=1;stack.length=0;stack.push(seed);
+      let minX=x,maxX=x,minY=y,maxY=y,area=0;
+      while(stack.length){
+        const pos=stack.pop(),cx=pos%w,cy=Math.floor(pos/w);
+        area++;minX=Math.min(minX,cx);maxX=Math.max(maxX,cx);
+        minY=Math.min(minY,cy);maxY=Math.max(maxY,cy);
+        for(let dy=-1;dy<=1;dy++){
+          const ny=cy+dy;if(ny<0||ny>=h)continue;
+          for(let dx=-1;dx<=1;dx++){
+            if(dx===0&&dy===0)continue;
+            const nx=cx+dx;if(nx<0||nx>=w)continue;
+            const ni=ny*w+nx;
+            if(mask[ni]&&!visited[ni]){visited[ni]=1;stack.push(ni);}
+          }
         }
       }
+      const bw=maxX-minX+1,bh=maxY-minY+1;
+      if(area<8||bw<2||bw>maxBarWidth||bh<4||bh<bw*.8||maxY<h*.28)continue;
+      components.push({x:(minX+maxX)/2,y:maxY,height:bh,width:bw,area});
     }
   }
-  const now=performance.now(),seen=new Set();
-  let x=0;
-  while(x<sw){
-    if(counts[x]<3){x++;continue;}
-    const left=x;let right=x,maxY=-1,minY=sh,total=0;
-    while(x<sw&&counts[x]>=3){right=x;maxY=Math.max(maxY,bottoms[x]);minY=Math.min(minY,tops[x]);total+=counts[x];x++;}
-    const width=right-left+1;
-    if(width<2||total<8||maxY<sh*0.30)continue;
-    const center=(left+right)/2;
-    const midi=Math.round(visionLowMidi+(center/Math.max(1,sw-1))*(visionHighMidi-visionLowMidi));
+
+  const now=performance.now(),used=new Set(),nextTracks=new Map();
+  for(const c of components){
+    const midi=Math.round(visionLowMidi+(c.x/Math.max(1,w-1))*(visionHighMidi-visionLowMidi));
     if(midi<21||midi>108)continue;
-    seen.add(midi);
-    if(!visualActive.has(midi)){
-      const progress=Math.max(0,Math.min(1,maxY/sh));
-      const delay=Math.max(0,(0.94-progress)*FALL_DURATION);
-      const detectedHeight=Math.max(4,maxY-minY);
-      // In falling-note tutorials, the visible note's vertical length encodes its sustain.
-      // Convert the detected bar height into a duration, then render it with rounded animation.
-      const durationMs=Math.max(100,Math.min(8000,(detectedHeight/sh)*FALL_DURATION*2.6));
-      pendingNotes.push({midi,arrivesAt:now+delay,src:'vision',freq:0,durationMs,barHeight:detectedHeight});
+    // Match each bar to its previous frame using pitch lane and falling position.
+    let bestId=null,bestScore=Infinity;
+    for(const [id,t] of visionTracks){
+      if(used.has(id)||t.midi!==midi||now-t.lastSeen>140)continue;
+      const dx=Math.abs(t.x-c.x),dy=Math.abs(t.y-c.y);
+      if(dx<=Math.max(5,c.width*1.5)&&dy<=Math.max(10,h*.09)){
+        const score=dx+dy*.35;
+        if(score<bestScore){bestScore=score;bestId=id;}
+      }
+    }
+    if(bestId!==null){
+      used.add(bestId);
+      nextTracks.set(bestId,{midi,x:c.x,y:c.y,height:c.height,lastSeen:now});
+    }else{
+      const id=++visionTrackId;
+      nextTracks.set(id,{midi,x:c.x,y:c.y,height:c.height,lastSeen:now});
+      const progress=Math.max(0,Math.min(1,c.y/Math.max(1,h-1)));
+      const delay=Math.max(0,(.94-progress)*FALL_DURATION);
+      const durationMs=Math.max(100,Math.min(8000,(c.height/Math.max(1,h))*FALL_DURATION*2.6));
+      pendingNotes.push({midi,arrivesAt:now+delay,src:'vision',freq:0,durationMs,barHeight:c.height});
       lastVisionTrigger.set(midi,now);
     }
-    visualMissing.set(midi,0);
   }
-  for(const midi of [...visualActive]){
-    if(seen.has(midi))continue;
-    const missing=(visualMissing.get(midi)||0)+1;
-    visualMissing.set(midi,missing);
-    if(missing>=2){visualActive.delete(midi);visualMissing.delete(midi);}
+  // Keep briefly missed tracks so compression or a single noisy frame doesn't
+  // cause the same falling bar to be queued repeatedly.
+  for(const [id,t] of visionTracks){
+    if(!nextTracks.has(id)&&now-t.lastSeen<140)nextTracks.set(id,t);
   }
-  for(const midi of seen)visualActive.add(midi);
+  visionTracks=nextTracks;
 }
 function setVisionRange(){
   visionLowMidi=+(document.getElementById('vision-low').value||36);
